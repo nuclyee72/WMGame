@@ -45,14 +45,11 @@ window.WM = window.WM || {};
   const JAM_EXTRA = 6;              // 과일이 (지금 속도 + 이만큼)보다 깊이 파고들면 벽·타일에 끼인 것
   const JAM_STEPS = 2;              // …이 상태가 이만큼 이어지면 튕긴다
 
-  // ── 32 타일: 네 모서리 동그라미만 몸통이라 가운데가 비어 있다. 7단계 과일이 들어가면 둘이 합쳐진다 ──
+  // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 둘이 합쳐진다 ──
   const SOCKET = 32;
-  const KNOB = 4;                   // 모서리 동그라미 반지름 (꼭짓점만 한 점. 6단계까지는 사이로 빠져나간다)
-  const KNOB_AT = TILE / 2 - KNOB;  // 타일 중심에서 동그라미 중심까지 (가로·세로). 그린 타일 안쪽 모서리에 딱 들어간다
   const SOCKET_TIER = 6;            // 7단계 (0부터 셈)
   const SOCKET_SNAP = 22;           // 과일 중심이 타일 중심에서 이만큼 안이면 합친다
   const SOCKET_POINTS = 256;
-  const KNOB_CAT = 0x0002;          // 모서리 동그라미 충돌 분류 — 7단계 과일만 통과해 구멍으로 들어간다
 
   // ── 64 타일: 몸통이 없어 모든 과일이 그냥 지나간다 (스와이프 땐 다른 타일처럼 움직이고 64 둘이면 128) ──
   const HOLLOW = 64;
@@ -359,8 +356,6 @@ window.WM = window.WM || {};
       ...SURFACE,
       frictionAir: FRICTION_AIR,
       density: 0.001,
-      // 7단계 과일은 32의 모서리 동그라미를 통과한다
-      collisionFilter: { category: 0x0001, mask: tier === SOCKET_TIER ? 0xffffffff & ~KNOB_CAT : 0xffffffff, group: 0 },
     });
     b.tier = tier;
     b.born = time;
@@ -442,7 +437,7 @@ window.WM = window.WM || {};
         gained = WM.points(N + 1) * 2; // 숨은 9단계 둘이 만나면 사라지며 보너스
         burst(x, y, radii[t], t, 2);
       } else {
-        const spot = findFit(x, y, radii[t + 1], t + 1);
+        const spot = findFit(x, y, radii[t + 1]);
         const nb = makeFruit(t + 1, spot.x, spot.y);
         nb.pop = true;
         nb.droppedAt = time - GRACE / 2;
@@ -529,7 +524,6 @@ window.WM = window.WM || {};
 
   // ── 2048 타일 ──
   const cellCenter = (col, row) => ({ x: MARGIN + (col + 0.5) * CELL, y: MARGIN + (row + 0.5) * CELL });
-  const KNOBS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 
   // 원이 정사각형 몸통에 파고든 깊이 (안 닿으면 0 이하)
   function squareOverlap(c, r, tp) {
@@ -538,62 +532,49 @@ window.WM = window.WM || {};
     if (dx < 0 && dy < 0) return r + Math.min(-dx, -dy);
     return r - Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
   }
-  // 원이 타일에 파고든 깊이 (32는 모서리 동그라미만, 7단계 과일은 32를, 모든 과일은 64를 통과하니 겹침 없음)
-  function tileOverlap(c, r, t, tier) {
-    const p = t.body.position;
-    if (t.value === HOLLOW) return -Infinity;
-    if (t.value !== SOCKET) return squareOverlap(c, r, p);
-    if (tier === SOCKET_TIER) return -Infinity;
-    let ov = -Infinity;
-    for (const [sx, sy] of KNOBS) {
-      ov = Math.max(ov, r + KNOB - Math.hypot(c.x - (p.x + sx * KNOB_AT), c.y - (p.y + sy * KNOB_AT)));
-    }
-    return ov;
+  // 원이 타일에 파고든 깊이 (32·64는 모든 과일이 통과하니 겹침 없음)
+  function tileOverlap(c, r, t) {
+    if (hollow(t.value)) return -Infinity;
+    return squareOverlap(c, r, t.body.position);
   }
 
   function tileBody(value, x, y) {
-    // 64는 아무것과도 부딪히지 않는 몸통 (자리만 잡아 둔다)
-    if (value === HOLLOW) return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, isSensor: true, collisionFilter: { category: 0, mask: 0, group: 0 } });
-    if (value !== SOCKET) return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, restitution: 0.2, ...SURFACE });
-    const parts = KNOBS.map(([sx, sy]) => M.Bodies.circle(x + sx * KNOB_AT, y + sy * KNOB_AT, KNOB));
-    return M.Body.create({
-      parts, isStatic: true, restitution: 0.2, ...SURFACE,
-      collisionFilter: { category: KNOB_CAT, mask: 0xffffffff, group: 0 },
-    });
+    // 32·64는 아무것과도 부딪히지 않는 몸통 (자리만 잡아 둔다)
+    if (hollow(value)) return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, isSensor: true, collisionFilter: { category: 0, mask: 0, group: 0 } });
+    return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, restitution: 0.2, ...SURFACE });
   }
 
-  // 값이 바뀌어 몸통 모양(꽉 찬 타일 · 32 · 64)이 달라지면 갈아 끼운다
-  const bodyKind = (v) => (v === SOCKET ? 1 : v === HOLLOW ? 2 : 0);
+  // 값이 바뀌어 몸통(꽉 찬 타일 · 빈 타일)이 달라지면 갈아 끼운다
   function setTileValue(t, value) {
-    const kind = bodyKind(t.value);
+    const kind = hollow(t.value);
     t.value = value;
     if (value > maxTile) { maxTile = value; cb.onDex && cb.onDex(); }
     if (value >= 64) setGoal('g64');
     if (value === HIDDEN_TILE) setHidden('tile128');
-    if (kind === bodyKind(value)) return;
+    if (kind === hollow(value)) return;
     const p = { x: t.body.position.x, y: t.body.position.y };
     M.Composite.remove(engine.world, t.body);
     t.body = tileBody(value, p.x, p.y);
     M.Composite.add(engine.world, t.body);
     // 구멍에 있던 과일은 막힌 타일이 되면 물리 계산 전에 바로 빠져나가게 한다 (깊이 겹친 채로 풀면 확 튕겨 나간다)
-    for (const b of fruits) if (!b.escape && tileOverlap(b.position, b.circleRadius, t, b.tier) > stuckDepth(b.circleRadius)) startEscape(b);
+    for (const b of fruits) if (!b.escape && tileOverlap(b.position, b.circleRadius, t) > stuckDepth(b.circleRadius)) startEscape(b);
   }
 
   // (x, y)에서 가장 가까운, 반지름 r 원이 벽·타일과 겹치지 않는 자리를 찾는다 (없으면 그대로)
-  function fits(x, y, r, tier) {
+  function fits(x, y, r) {
     const c = container();
     if (x < c.x0 + r || x > c.x1 - r || y < c.y0 + r || y > c.y1 - r) return false;
-    for (const t of tiles) if (tileOverlap({ x, y }, r, t, tier) > 0.5) return false;
+    for (const t of tiles) if (tileOverlap({ x, y }, r, t) > 0.5) return false;
     return true;
   }
-  function findFit(x, y, r, tier) {
-    if (fits(x, y, r, tier)) return { x, y };
+  function findFit(x, y, r) {
+    if (fits(x, y, r)) return { x, y };
     for (let rad = 10; rad <= S * 1.5; rad += 10) {
       const n = Math.ceil((2 * Math.PI * rad) / 10);
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
         const px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad;
-        if (fits(px, py, r, tier)) return { x: px, y: py };
+        if (fits(px, py, r)) return { x: px, y: py };
       }
     }
     return { x, y };
@@ -606,7 +587,7 @@ window.WM = window.WM || {};
     for (const b of fruits) {
       if (b.escape) continue;
       let deep = 0;
-      for (const t of tiles) deep = Math.max(deep, tileOverlap(b.position, b.circleRadius, t, b.tier));
+      for (const t of tiles) deep = Math.max(deep, tileOverlap(b.position, b.circleRadius, t));
       b.stuck = deep > stuckDepth(b.circleRadius) ? (b.stuck || 0) + 1 : 0;
       if (b.stuck < STUCK_STEPS) continue;
       startEscape(b);
@@ -615,7 +596,7 @@ window.WM = window.WM || {};
   // 지금 자리에서 to(없으면 가까운 빈자리)로 미끄러져 간다
   function startEscape(b, to) {
     b.stuck = 0;
-    to = to || findFit(b.position.x, b.position.y, b.circleRadius, b.tier);
+    to = to || findFit(b.position.x, b.position.y, b.circleRadius);
     if (Math.hypot(to.x - b.position.x, to.y - b.position.y) < 1) return;
     // 가는 동안은 다른 것과 부딪히지 않는다 (isSensor는 이미 닿아 있던 상대에겐 안 먹어서 충돌 자체를 끈다)
     const mask = b.escape ? b.escape.mask : b.collisionFilter.mask;
@@ -640,7 +621,7 @@ window.WM = window.WM || {};
       place(b, { x: e.from.x + (e.to.x - e.from.x) * ease, y: e.from.y + (e.to.y - e.from.y) * ease }, { x: 0, y: 0 });
       if (k < 1) continue;
       // 오는 사이 미끄러지던 타일이 그 자리를 차지했으면 다시 빈자리를 찾아 이어 간다 (겹친 채 충돌을 켜면 확 튕긴다)
-      if (!fits(b.position.x, b.position.y, b.circleRadius, b.tier)) {
+      if (!fits(b.position.x, b.position.y, b.circleRadius)) {
         startEscape(b);
         if (b.escape !== e) continue;
       }
@@ -704,7 +685,7 @@ window.WM = window.WM || {};
     for (const b of fruits) {
       const r = b.circleRadius, p = b.escape ? b.escape.to : b.position;
       const x = clamp(p.x, c.x0 + r, c.x1 - r), y = clamp(p.y, c.y0 + r, c.y1 - r);
-      if (b.escape || x !== b.position.x || y !== b.position.y) startEscape(b, findFit(x, y, r, b.tier));
+      if (b.escape || x !== b.position.x || y !== b.position.y) startEscape(b, findFit(x, y, r));
       b.droppedAt = time; // 다시 자리 잡을 때까지 위험선 검사를 쉰다
     }
     overTimer = 0;
@@ -775,7 +756,7 @@ window.WM = window.WM || {};
       const r = b.circleRadius;
       const ahead = (b.position.x - p.x) * d.x + (b.position.y - p.y) * d.y;
       if (ahead <= 0) continue;
-      const ov = tileOverlap(b.position, r, t, b.tier);
+      const ov = tileOverlap(b.position, r, t);
       if (ov > 0.5) {
         touching = true;
         if (ov > Math.min(t.speed + JAM_EXTRA, r * 0.6)) jammed = true;
@@ -942,7 +923,7 @@ window.WM = window.WM || {};
     pendingTile = null;
     if (!spot) return;
     const t = makeTile(spot.col, spot.row, p.value);
-    for (const b of fruits) if (!b.escape && tileOverlap(b.position, b.circleRadius, t, b.tier) > SPAWN_ROOM) startEscape(b);
+    for (const b of fruits) if (!b.escape && tileOverlap(b.position, b.circleRadius, t) > SPAWN_ROOM) startEscape(b);
     checkFull();
   }
   function resolvePending() {
@@ -1191,7 +1172,7 @@ window.WM = window.WM || {};
     ctx.restore();
   }
 
-  // 32: 모서리 동그라미 넷 + 비어 있는 가운데 (7단계 과일 자리를 흐리게 보여 준다)
+  // 32: 비어 있는 가운데 (7단계 과일 자리를 흐리게 보여 준다)
   function drawSocket(t) {
     const p = t.body.position;
     const s = tileScale(t);
@@ -1208,14 +1189,6 @@ window.WM = window.WM || {};
     ctx.setLineDash([]);
     drawSprite(SOCKET_TIER, p.x, p.y, radii[SOCKET_TIER] * 0.9 * s, 0, 0.16, false);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = bg;
-    setShadow(0.22, 4, 3);
-    for (const [sx, sy] of KNOBS) {
-      ctx.beginPath();
-      ctx.arc(p.x + sx * KNOB_AT * s, p.y + sy * KNOB_AT * s, KNOB * s, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.shadowColor = 'transparent';
     ctx.font = `700 ${Math.round(26 * s)}px Outfit, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

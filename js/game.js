@@ -63,7 +63,10 @@ window.WM = window.WM || {};
 
   // ── 합체 효과 ──
   const KICK = 1.5;                 // 합쳐질 때 주변 과일을 미는 세기 (스텝당 px)
-  const ESCAPE_TIME = 200;          // 끼인 과일이 빈자리로 톡 튀어나가는 시간
+  const ESCAPE_SPEED = 0.3;         // 끼인 과일이 빈자리로 미끄러져 가는 빠르기 (ms당 월드 px)
+  const ESCAPE_MIN = 220, ESCAPE_MAX = 600; // …가까워도 이만큼은 천천히, 멀어도 이보다 오래 걸리지 않게 (ms)
+  const ESCAPE_NEAR = CELL;         // 이 안에서 다른 과일과도 덜 겹치는 빈자리를 먼저 찾는다
+  const NUDGE = 1.2;                // 끼인 동안 타일 밖으로 조금씩 밀어내는 거리 (스텝당 px)
 
   // ── 판 밖으로 나가지 않게 ──
   const MAX_SPEED = 18;             // 과일 최고 속도 (스텝당 px). 맨 위에서 바닥까지 떨어질 때가 16쯤이라 그보다 조금 위
@@ -580,27 +583,70 @@ window.WM = window.WM || {};
     return { x, y };
   }
 
-  // 타일·벽 사이에 끼어 빠지지 못하는 과일은 가까운 빈자리로 톡 튀어나간다 (오래 떨지 않게 빨리)
+  // 끼인 과일이 갈 빈자리: 가까운 곳에서 다른 과일과도 거의 안 겹치는 자리를 먼저 찾고, 없으면 타일·벽만 피한다
+  // (과일 한가운데로 들어가 충돌을 켜면 서로 확 밀어내 튀어 보인다)
+  function escapeSpot(b) {
+    const { x, y } = b.position, r = b.circleRadius;
+    const roomy = (px, py) => {
+      if (!fits(px, py, r)) return false;
+      for (const o of fruits) {
+        if (o === b) continue;
+        const q = o.escape ? o.escape.to : o.position;
+        if (r + o.circleRadius - Math.hypot(px - q.x, py - q.y) > r * 0.25) return false;
+      }
+      return true;
+    };
+    for (let rad = 6; rad <= ESCAPE_NEAR; rad += 6) {
+      const n = Math.ceil((2 * Math.PI * rad) / 8);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad;
+        if (roomy(px, py)) return { x: px, y: py };
+      }
+    }
+    return findFit(x, y, r);
+  }
+
+  // 원 중심을 타일 몸통 밖으로 내보내는 방향 (가장 얕게 빠져나가는 쪽)
+  function outOfTile(c, tp) {
+    const dx = c.x - tp.x, dy = c.y - tp.y;
+    const ex = Math.abs(dx) - BODY / 2, ey = Math.abs(dy) - BODY / 2;
+    if (ex < 0 && ey < 0) return ex > ey ? { x: Math.sign(dx) || 1, y: 0 } : { x: 0, y: Math.sign(dy) || 1 };
+    const ox = Math.max(ex, 0) * Math.sign(dx), oy = Math.max(ey, 0) * Math.sign(dy), d = Math.hypot(ox, oy) || 1;
+    return { x: ox / d, y: oy / d };
+  }
+
+  // 타일·벽 사이에 끼인 과일은 먼저 타일 밖으로 조금씩 밀어내고, 그래도 안 빠지면 가까운 빈자리로 미끄러져 간다
   // 쌓인 무게로 조금 눌리는 건(반지름의 30%까지) 그대로 둔다
-  const stuckDepth = (r) => Math.max(10, r * 0.3), STUCK_STEPS = 6;
+  const stuckDepth = (r) => Math.max(10, r * 0.3), STUCK_STEPS = 24;
   function freeStuck() {
     for (const b of fruits) {
       if (b.escape) continue;
-      let deep = 0;
-      for (const t of tiles) deep = Math.max(deep, tileOverlap(b.position, b.circleRadius, t));
-      b.stuck = deep > stuckDepth(b.circleRadius) ? (b.stuck || 0) + 1 : 0;
-      if (b.stuck < STUCK_STEPS) continue;
-      startEscape(b);
+      let deep = 0, at = null;
+      for (const t of tiles) {
+        const ov = tileOverlap(b.position, b.circleRadius, t);
+        if (ov > deep) { deep = ov; at = t; }
+      }
+      if (deep <= stuckDepth(b.circleRadius)) { b.stuck = 0; continue; }
+      b.stuck = (b.stuck || 0) + 1;
+      if (b.stuck >= STUCK_STEPS) { startEscape(b); continue; }
+      // 타일 쪽으로 가던 속도는 지우고 바깥으로 살짝 민다 (나머지는 물리가 자연스럽게 풀게 둔다)
+      const n = outOfTile(b.position, at.body.position), v = b.velocity;
+      const into = v.x * n.x + v.y * n.y;
+      if (into < 0) M.Body.setVelocity(b, { x: v.x - into * n.x, y: v.y - into * n.y });
+      M.Body.translate(b, { x: n.x * NUDGE, y: n.y * NUDGE });
     }
   }
-  // 지금 자리에서 to(없으면 가까운 빈자리)로 미끄러져 간다
+  // 지금 자리에서 to(없으면 가까운 빈자리)로 미끄러져 간다. 멀수록 오래 걸려 순간 이동처럼 보이지 않게
   function startEscape(b, to) {
     b.stuck = 0;
-    to = to || findFit(b.position.x, b.position.y, b.circleRadius);
-    if (Math.hypot(to.x - b.position.x, to.y - b.position.y) < 1) return;
+    to = to || escapeSpot(b);
+    const dist = Math.hypot(to.x - b.position.x, to.y - b.position.y);
+    if (dist < 1) return;
     // 가는 동안은 다른 것과 부딪히지 않는다 (isSensor는 이미 닿아 있던 상대에겐 안 먹어서 충돌 자체를 끈다)
     const mask = b.escape ? b.escape.mask : b.collisionFilter.mask;
-    b.escape = { from: { x: b.position.x, y: b.position.y }, to, t0: time, mask };
+    const dur = clamp(dist / ESCAPE_SPEED, ESCAPE_MIN, ESCAPE_MAX);
+    b.escape = { from: { x: b.position.x, y: b.position.y }, to, t0: time, dur, mask };
     b.collisionFilter.mask = 0;
   }
 
@@ -616,8 +662,8 @@ window.WM = window.WM || {};
     for (const b of fruits) {
       const e = b.escape;
       if (!e) continue;
-      const k = Math.min(1, (time - e.t0) / ESCAPE_TIME);
-      const ease = 1 - (1 - k) * (1 - k);
+      const k = Math.min(1, (time - e.t0) / e.dur);
+      const ease = k * k * (3 - 2 * k); // 천천히 떠나 천천히 닿는다
       place(b, { x: e.from.x + (e.to.x - e.from.x) * ease, y: e.from.y + (e.to.y - e.from.y) * ease }, { x: 0, y: 0 });
       if (k < 1) continue;
       // 오는 사이 미끄러지던 타일이 그 자리를 차지했으면 다시 빈자리를 찾아 이어 간다 (겹친 채 충돌을 켜면 확 튕긴다)
@@ -625,12 +671,10 @@ window.WM = window.WM || {};
         startEscape(b);
         if (b.escape !== e) continue;
       }
-      // 도착하면 나가던 방향으로 툭
+      // 도착하면 멈춘 채로 다시 물리에 맡긴다
       b.collisionFilter.mask = e.mask;
       b.escape = null;
       b.droppedAt = time;
-      const dx = e.to.x - e.from.x, dy = e.to.y - e.from.y, d = Math.hypot(dx, dy) || 1;
-      M.Body.setVelocity(b, { x: (dx / d) * 2.5, y: (dy / d) * 2.5 });
     }
   }
 
@@ -1395,7 +1439,7 @@ window.WM = window.WM || {};
         const age = time - b.born;
         if (age < POP_TIME) { const k = age / POP_TIME; s = 0.6 + 0.4 * (1 - (1 - k) * (1 - k)); }
       }
-      if (b.escape) s *= 1 + 0.12 * Math.sin(Math.min(1, (time - b.escape.t0) / ESCAPE_TIME) * Math.PI);
+      if (b.escape) s *= 1 + 0.05 * Math.sin(Math.min(1, (time - b.escape.t0) / b.escape.dur) * Math.PI);
       const sh = holdShake(b);
       drawSprite(b.tier, b.position.x + sh.x, b.position.y + sh.y, b.circleRadius * s * sh.s, b.angle, 1, true);
     }

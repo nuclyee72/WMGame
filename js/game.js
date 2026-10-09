@@ -5,12 +5,14 @@ window.WM = window.WM || {};
   const COLS = 4, ROWS = 4;
   const CELL = 100;                 // 칸 한 변
   const G = CELL * COLS;            // 칸 영역 한 변 400
-  const MARGIN = 70;                // 바깥 여백
-  const S = G + MARGIN * 2;         // 월드 한 변 540 (화면 크기와 무관)
+  const PAD = 20;                   // 칸 영역 둘레에 더 둔 과일 자리 (작은 과일은 타일 옆·아래로 빠져 지나간다)
+  const EDGE = 70;                  // 받침 바깥 여백 (떨어뜨리는 띠)
+  const MARGIN = EDGE + PAD;        // 월드 가장자리에서 칸 영역까지
+  const S = G + MARGIN * 2;         // 월드 한 변 580 (화면 크기와 무관)
   const BODY = CELL;                // 타일 몸통은 칸을 꽉 채운다 (이웃 타일·벽과 틈이 없어 과일이 끼지 않는다)
   const TILE = CELL - 6;            // 그림은 조금 작게 그려 칸이 보이게 한다
   const RIM = 14;                   // 받침 테두리 두께
-  const LIMIT = MARGIN - RIM / 2;   // 제한선 = 떨어뜨리는 쪽 받침 테두리 한가운데 (과일 윗부분이 이보다 바깥이면 위험)
+  const LIMIT = EDGE - RIM / 2;     // 제한선 = 떨어뜨리는 쪽 받침 테두리 한가운데 (과일 윗부분이 이보다 바깥이면 위험)
   const TRAY_DEPTH = 6;             // 받침 두께 (그림자 쪽으로 보이는 옆면)
   const STEP = 1000 / 60;           // 고정 물리 스텝
   const SUBSTEPS = 2;               // 한 스텝을 나눠 풀어 겹침·떨림을 줄인다
@@ -46,20 +48,19 @@ window.WM = window.WM || {};
   const JAM_STEPS = 2;              // …이 상태가 이만큼 이어지면 튕긴다
 
   // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 둘이 합쳐진다 ──
+  // 합치기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 32는 64처럼 빈 테두리일 뿐)
   const SOCKET = 32;
   const SOCKET_TIER = 6;            // 7단계 (0부터 셈)
   const SOCKET_SNAP = 22;           // 과일 중심이 타일 중심에서 이만큼 안이면 합친다
   const SOCKET_POINTS = 256;
 
-  // ── 64 타일: 몸통이 없어 모든 과일이 그냥 지나간다 (스와이프 땐 다른 타일처럼 움직이고 64 둘이면 128) ──
+  // ── 16·64 타일: 몸통이 없어 모든 과일이 그냥 지나간다 (스와이프 땐 다른 타일처럼 움직이고 합쳐진다. 64 둘이면 128) ──
+  const OPEN = 16;
   const HOLLOW = 64;
-  const hollow = (v) => v === SOCKET || v === HOLLOW; // 속이 비어 맨 윗칸에 있어도 떨어뜨리기를 막지 않는다
+  const hollow = (v) => v === OPEN || v === SOCKET || v === HOLLOW; // 속이 비어 맨 윗칸에 있어도 떨어뜨리기를 막지 않는다
 
   // ── 숨은 요소: 8단계 둘 → 9단계 과일, 64 둘 → 128 타일. 만들면 파란 별 (메인 목표 아님) ──
-  // 판 위의 9단계 과일·128 타일은 꾹 누르고 있으면 부들부들 떨다가 퐁 하고 사라진다
   const HIDDEN_TILE = 128;
-  const HOLD_TIME = 700;            // 이만큼 누르고 있으면 사라진다
-  const HOLD_SLOP = 12;             // 누른 채 이만큼(화면 px) 움직이면 꾹 누르기가 아니라 조준·스와이프
 
   // ── 합체 효과 ──
   const KICK = 1.5;                 // 합쳐질 때 주변 과일을 미는 세기 (스텝당 px)
@@ -69,10 +70,10 @@ window.WM = window.WM || {};
   const NUDGE = 1.2;                // 끼인 동안 타일 밖으로 조금씩 밀어내는 거리 (스텝당 px)
 
   // ── 판 밖으로 나가지 않게 ──
-  const MAX_SPEED = 18;             // 과일 최고 속도 (스텝당 px). 맨 위에서 바닥까지 떨어질 때가 16쯤이라 그보다 조금 위
+  const MAX_SPEED = 21;             // 과일 최고 속도 (스텝당 px). 맨 위에서 바닥까지 떨어질 때가 16쯤이라 그보다 넉넉히 위
   const MAX_GAIN = 3;               // 물리 반 스텝 동안 부딪혀서 붙을 수 있는 속도 (중력은 0.15쯤. 큰 과일에 맞은 작은 과일이 날아가지 않게)
   const BOUNCE_UP_MAX = 5;          // 튕길 때 중력 반대쪽 최고 속도 (맨 위에서 떨어져 바닥에 튕기는 게 4.8쯤)
-  const BOUNCE_SIDE_MAX = 7;        // 중력에 수직인(옆으로 가는) 최고 속도 (굴러 내려가는 건 거의 6 아래)
+  const BOUNCE_SIDE_MAX = 8.5;      // 중력에 수직인(옆으로 가는) 최고 속도 (굴러 내려가는 건 거의 6 아래)
   const WALL_SLACK = 0.25;          // 벽 너머로 반지름의 이만큼(최소 4px)보다 더 나가면 안으로 되돌린다
   const WALL_BOUNCE = 0.3;          // 되돌릴 때 바깥으로 가던 속도를 이만큼 거꾸로 튕긴다
 
@@ -99,7 +100,7 @@ window.WM = window.WM || {};
   let time = 0, lastDrop = -1e9, overTimer = 0, danger = false;
   let score = 0, maxTier = 0, maxTile = 0, over = false;
   let goals = { g64: false, socket: false, top: false }, hidden = { fruit9: false, tile128: false };
-  let banner = null, hold = null; // banner = 판 가운데 잠깐 뜨는 글 · hold = 꾹 누르는 중인 { obj, kind, t0, x, y }
+  let banner = null; // 판 가운데 잠깐 뜨는 글
   let gravity = 'down', tiles = new Set(), grid = [], phase = false;
   // 다음 타일: 값은 미리 굴려 두고, 생길 칸(nextSpot)은 스와이프 차례가 오면 정해 스와이프할 때까지 보여 준다
   // pendingTile = 스와이프 뒤 과일이 자리 잡길 기다리는 타일 (spot = 보여 준 칸. 놓을 때 막혔으면 다른 칸을 고른다)
@@ -114,8 +115,8 @@ window.WM = window.WM || {};
   const clamp = WM.clamp;
   const randFruit = () => Math.floor(Math.random() * settings.dropCount);
   const rollNext = (prev) => (prev !== SWIPE && Math.random() < SWIPE_CHANCE ? SWIPE : randFruit());
-  const spawnDepth = (r) => Math.max(MARGIN / 2, r + 4);
-  const rollTile = () => ({ value: Math.random() < 0.9 ? 2 : 4 });
+  const spawnDepth = (r) => Math.max(EDGE / 2, r + 4);
+  const rollTile = () => ({ value: Math.random() < 0.6 ? 2 : 4 }); // 4가 40%: 64가 8단계 과일과 비슷한 때쯤 나오게
 
   // ── 중력 방향 기준 좌표 ──
   // depth = 떨어뜨리는 쪽 바깥 가장자리에서 중력 방향으로 잰 거리
@@ -137,9 +138,9 @@ window.WM = window.WM || {};
       default: return p.y;
     }
   }
-  // 과일이 들어갈 수 있는 상자 = 4×4 칸 + 떨어뜨리는 쪽 여백
+  // 과일이 들어갈 수 있는 상자 = 4×4 칸과 둘레 PAD + 떨어뜨리는 쪽 여백
   function container() {
-    const lo = MARGIN, hi = MARGIN + G;
+    const lo = EDGE, hi = MARGIN + G + PAD;
     switch (gravity) {
       case 'up': return { x0: lo, x1: hi, y0: lo, y1: S };
       case 'left': return { x0: lo, x1: S, y0: lo, y1: hi };
@@ -163,18 +164,12 @@ window.WM = window.WM || {};
       pressing = true;
       press = { x: e.clientX, y: e.clientY };
       try { canvas.setPointerCapture(e.pointerId); } catch {}
-      hold = holdTarget(e);
       setAim(e);
     });
-    canvas.addEventListener('pointermove', (e) => {
-      // 누른 채 움직이면 꾹 누르기를 그만두고 평소처럼 조준·스와이프
-      if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > HOLD_SLOP) hold = null;
-      setAim(e);
-    });
+    canvas.addEventListener('pointermove', setAim);
     canvas.addEventListener('pointerup', (e) => {
       if (!pressing) return;
       pressing = false;
-      if (hold) { hold = null; press = null; return; } // 꾹 누르다 일찍 떼면 아무 일도 없다 (과일을 놓지 않는다)
       if (current === SWIPE) {
         const dir = dragDir(e);
         press = null;
@@ -185,7 +180,7 @@ window.WM = window.WM || {};
       setAim(e);
       drop();
     });
-    canvas.addEventListener('pointercancel', () => { pressing = false; press = null; hold = null; });
+    canvas.addEventListener('pointercancel', () => { pressing = false; press = null; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // 폰에서 꾹 누를 때 메뉴가 뜨지 않게
   };
 
@@ -194,51 +189,6 @@ window.WM = window.WM || {};
     const dx = e.clientX - press.x, dy = e.clientY - press.y;
     if (Math.max(Math.abs(dx), Math.abs(dy)) <= SWIPE_DIST) return null;
     return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
-  }
-
-  // 누른 곳에 숨은 9단계 과일이나 128 타일이 있으면 꾹 누르기를 시작한다
-  function holdTarget(e) {
-    const rect = canvas.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * S, y = ((e.clientY - rect.top) / rect.height) * S;
-    const start = { t0: time, x: e.clientX, y: e.clientY };
-    for (const b of fruits) {
-      if (b.tier === N && !b.escape && Math.hypot(b.position.x - x, b.position.y - y) <= b.circleRadius) return { ...start, kind: 'fruit', obj: b };
-    }
-    if (phase) return null;
-    for (const t of tiles) {
-      const p = t.body.position;
-      if (t.value === HIDDEN_TILE && Math.abs(p.x - x) <= CELL / 2 && Math.abs(p.y - y) <= CELL / 2) return { ...start, kind: 'tile', obj: t };
-    }
-    return null;
-  }
-  // 꾹 누르기: 다 채우면 퐁 하고 사라진다 (그새 합쳐지거나 움직이기 시작했으면 그만둔다)
-  function updateHold() {
-    if (!hold) return;
-    const o = hold.obj;
-    const alive = hold.kind === 'fruit' ? fruits.has(o) && !o.escape : tiles.has(o) && o.value === HIDDEN_TILE && !phase;
-    if (!alive) { hold = null; return; }
-    if (time - hold.t0 < HOLD_TIME) return;
-    if (hold.kind === 'fruit') {
-      M.Composite.remove(engine.world, o);
-      fruits.delete(o);
-      burst(o.position.x, o.position.y, o.circleRadius, o.tier, 2.2);
-    } else {
-      const p = o.body.position;
-      M.Composite.remove(engine.world, o.body);
-      tiles.delete(o);
-      grid[o.row][o.col] = null;
-      burst(p.x, p.y, CELL * 0.45, 0, 2.2, null, TILE_COLORS[HIDDEN_TILE][0]);
-    }
-    hold = null;
-    pressing = false; // 뗄 때 과일을 놓지 않게
-    press = null;
-  }
-  // 꾹 누르는 중이면 점점 세게 부들부들 떨고 살짝 부푼다
-  function holdShake(obj) {
-    if (!hold || hold.obj !== obj) return { x: 0, y: 0, s: 1 };
-    const k = Math.min(1, (time - hold.t0) / HOLD_TIME);
-    const a = 1 + 4 * k;
-    return { x: Math.sin(time / 16) * a, y: Math.cos(time / 21) * a * 0.6, s: 1 + 0.08 * k };
   }
 
   function setAim(e) {
@@ -254,8 +204,8 @@ window.WM = window.WM || {};
     if (!engine || over) return false;
     if (SWIPE_KEYS[e.key]) { swipe(SWIPE_KEYS[e.key]); return true; }
     // 한글 입력 상태에서도 되도록 e.code로 본다
-    if (e.code === 'KeyA') { aim = Math.max(MARGIN, aim - 14); return true; }
-    if (e.code === 'KeyD') { aim = Math.min(MARGIN + G, aim + 14); return true; }
+    if (e.code === 'KeyA') { aim = Math.max(EDGE, aim - 14); return true; }
+    if (e.code === 'KeyD') { aim = Math.min(S - EDGE, aim + 14); return true; }
     if (e.key === ' ' || e.key === 'Enter') { drop(); return true; }
     return false;
   };
@@ -299,7 +249,7 @@ window.WM = window.WM || {};
     score = 0; maxTier = 0; maxTile = 0; over = false; pendingDrop = false; acc = 0;
     goals = { g64: false, socket: false, top: false };
     hidden = { fruit9: false, tile128: false };
-    banner = null; hold = null;
+    banner = null;
     nextTile = rollTile(); nextSpot = null; plannedSpawn = null; pendingTile = null; noRoom = false;
     current = randFruit(); next = rollNext(current);
     cb.onScore && cb.onScore(0);
@@ -382,12 +332,14 @@ window.WM = window.WM || {};
     return grid[Math.floor((w.y - MARGIN) / CELL)][Math.floor((w.x - MARGIN) / CELL)];
   }
 
-  // 지금 조준 위치에 놓을 과일 자리 (맨 윗칸에 막힌 타일이 있거나 타일과 겹치면 놓을 수 없다. 32·64는 속이 비어 통과)
+  // 지금 조준 위치에 놓을 과일 자리 (맨 윗칸에 막힌 타일이 있거나 타일과 겹치면 놓을 수 없다. 16·32·64는 속이 비어 통과)
+  // 조준은 판 바닥 끝까지 된다. 칸 영역 옆 여백에 쏙 들어가는 작은 과일은 옆 칸 타일에 막히지 않는다
   function dropSpot() {
     const r = radii[current];
-    const along = clamp(aim, MARGIN + r, MARGIN + G - r);
+    const along = clamp(aim, EDGE + r, S - EDGE - r);
     const p = toWorld(spawnDepth(r), along);
-    const top = topTile(along);
+    const inGrid = along + r > MARGIN + 1 && along - r < MARGIN + G - 1;
+    const top = inGrid ? topTile(along) : null;
     const blocker = (top && !hollow(top.value) ? top : null)
       || [...tiles].find((t) => tileOverlap(p, r, t) > 0) || null;
     return { p, r, along, blocker };
@@ -616,9 +568,16 @@ window.WM = window.WM || {};
     return { x: ox / d, y: oy / d };
   }
 
+  // 타일 반대쪽(밀려날 쪽)이 바로 벽인지 (칸 둘레 여백에서 타일과 벽 사이에 눌린 과일)
+  function againstWall(b, n) {
+    const c = container(), r = b.circleRadius, p = b.position;
+    const gap = n.x > 0.5 ? c.x1 - p.x : n.x < -0.5 ? p.x - c.x0 : n.y > 0.5 ? c.y1 - p.y : n.y < -0.5 ? p.y - c.y0 : Infinity;
+    return gap - r < 1.5;
+  }
+
   // 타일·벽 사이에 끼인 과일은 먼저 타일 밖으로 조금씩 밀어내고, 그래도 안 빠지면 가까운 빈자리로 미끄러져 간다
-  // 쌓인 무게로 조금 눌리는 건(반지름의 30%까지) 그대로 둔다
-  const stuckDepth = (r) => Math.max(10, r * 0.3), STUCK_STEPS = 24;
+  // 쌓인 무게로 조금 눌리는 건(반지름의 30%까지) 그대로 둔다. 다만 타일과 벽 사이에 눌린 건 얕아도 빼낸다 (둘 다 안 움직여 떤다)
+  const stuckDepth = (r) => Math.max(10, r * 0.3), STUCK_STEPS = 24, PINCH_DEPTH = 2.5, PINCH_STEPS = 8;
   function freeStuck() {
     for (const b of fruits) {
       if (b.escape) continue;
@@ -627,11 +586,14 @@ window.WM = window.WM || {};
         const ov = tileOverlap(b.position, b.circleRadius, t);
         if (ov > deep) { deep = ov; at = t; }
       }
-      if (deep <= stuckDepth(b.circleRadius)) { b.stuck = 0; continue; }
+      const n = at && outOfTile(b.position, at.body.position);
+      const pinched = deep > PINCH_DEPTH && againstWall(b, n);
+      if (deep <= stuckDepth(b.circleRadius) && !pinched) { b.stuck = 0; continue; }
       b.stuck = (b.stuck || 0) + 1;
-      if (b.stuck >= STUCK_STEPS) { startEscape(b); continue; }
+      if (b.stuck >= (pinched ? PINCH_STEPS : STUCK_STEPS)) { startEscape(b); continue; }
+      if (pinched) continue; // 벽 쪽으로는 밀 수 없으니 기다렸다가 빈자리로
       // 타일 쪽으로 가던 속도는 지우고 바깥으로 살짝 민다 (나머지는 물리가 자연스럽게 풀게 둔다)
-      const n = outOfTile(b.position, at.body.position), v = b.velocity;
+      const v = b.velocity;
       const into = v.x * n.x + v.y * n.y;
       if (into < 0) M.Body.setVelocity(b, { x: v.x - into * n.x, y: v.y - into * n.y });
       M.Body.translate(b, { x: n.x * NUDGE, y: n.y * NUDGE });
@@ -678,9 +640,9 @@ window.WM = window.WM || {};
     }
   }
 
-  // 32 구멍에 7단계 과일이 자리 잡으면 둘이 합쳐져 사라진다
+  // 32 구멍에 7단계 과일이 자리 잡으면 둘이 합쳐져 사라진다 (판마다 한 번만)
   function checkSockets() {
-    if (phase) return;
+    if (phase || goals.socket) return;
     for (const t of tiles) {
       if (t.value !== SOCKET) continue;
       const p = t.body.position;
@@ -715,7 +677,6 @@ window.WM = window.WM || {};
 
   function swipe(dir) {
     if (!engine || over || phase || current !== SWIPE) return;
-    if (hold && hold.kind === 'tile') hold = null;
     resolvePending(); // 아직 기다리던 타일은 지금 놓는다
     plannedSpawn = nextSpot || pickSpot(); // 보여 준 칸에 생기게 한다
     nextSpot = null;
@@ -995,7 +956,6 @@ window.WM = window.WM || {};
     if (over) return;
     over = true;
     pressing = false;
-    hold = null;
     const stars = starCount(), cleared = stars === 3;
     const blue = (hidden.fruit9 ? 1 : 0) + (hidden.tile128 ? 1 : 0);
     const stats = WM.stats;
@@ -1057,7 +1017,6 @@ window.WM = window.WM || {};
     processMerges();
     if (over) return;
     if (tiles.size) { freeStuck(); checkSockets(); }
-    updateHold();
     updateEffects();
     ensurePlayable();
     // 스와이프 차례가 오면 (앞 타일이 다 놓인 뒤) 다음 타일 칸을 정해 보여 준다
@@ -1181,11 +1140,10 @@ window.WM = window.WM || {};
   }
 
   function drawTile(t, blocked) {
-    if (t.value === SOCKET) { drawSocket(t); return; }
-    if (t.value === HOLLOW) { drawHollow(t); return; }
-    const sh = holdShake(t);
-    const p = { x: t.body.position.x + sh.x, y: t.body.position.y + sh.y };
-    const s = tileScale(t) * sh.s;
+    if (t.value === SOCKET && !goals.socket) { drawSocket(t); return; }
+    if (hollow(t.value) && t.value !== HOLLOW) { drawHollow(t); return; } // 64는 통과되지만 보통 타일처럼 꽉 차게 그린다
+    const p = t.body.position;
+    const s = tileScale(t);
     const v = shade();
     const [bg, fg] = TILE_COLORS[t.value] || ['#3c3a32', '#f9f6f2'];
     const w = TILE * s;
@@ -1237,7 +1195,7 @@ window.WM = window.WM || {};
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = bg;
-    ctx.fillText('32', p.x, p.y + 2);
+    ctx.fillText(SOCKET, p.x, p.y + 2);
     ctx.restore();
   }
 
@@ -1272,11 +1230,11 @@ window.WM = window.WM || {};
     if (nextSpot) drawGhost(nextSpot.col, nextSpot.row, nextSpot.value);
   }
 
-  // 64: 몸통 없는 빈 타일 — 점선 테두리와 숫자만
+  // 16 (그리고 한 번 채운 뒤의 32): 몸통 없는 빈 타일 — 점선 테두리와 숫자만
   function drawHollow(t) {
     const p = t.body.position;
     const s = tileScale(t);
-    const [bg] = TILE_COLORS[HOLLOW];
+    const [bg] = TILE_COLORS[t.value];
     const w = (TILE - 6) * s;
     ctx.save();
     ctx.globalAlpha = colors.dark ? 0.16 : 0.12;
@@ -1292,7 +1250,7 @@ window.WM = window.WM || {};
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = bg;
-    ctx.fillText('64', p.x, p.y + 2);
+    ctx.fillText(t.value, p.x, p.y + 2);
     ctx.restore();
   }
 
@@ -1305,13 +1263,13 @@ window.WM = window.WM || {};
 
   // 떨어뜨리는 쪽 여백: 둥근 띠 + 중력 방향 화살표 (스와이프 차례에는 화살표 대신 스와이프 표시)
   function drawDropZone(swipeTurn) {
-    const p0 = toWorld(6, MARGIN), p1 = toWorld(MARGIN - RIM - 2, MARGIN + G);
+    const p0 = toWorld(6, EDGE), p1 = toWorld(EDGE - RIM - 2, S - EDGE);
     const x = Math.min(p0.x, p1.x), y = Math.min(p0.y, p1.y);
     ctx.save();
     ctx.fillStyle = `rgba(${colors.rgb}, 0.035)`;
     roundRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y), 14);
     ctx.fill();
-    const mid = (6 + MARGIN - RIM - 2) / 2;
+    const mid = (6 + EDGE - RIM - 2) / 2;
     if (swipeTurn) {
       const c = toWorld(mid, S / 2);
       ctx.globalAlpha = 0.9;
@@ -1338,7 +1296,7 @@ window.WM = window.WM || {};
 
   // 판: 두께가 있는 받침 + 안으로 파인 칸 자리 (두께와 그늘은 그림자 방향을 따른다)
   function drawTray() {
-    const x0 = MARGIN - RIM, w = G + RIM * 2, rad = 22;
+    const x0 = EDGE - RIM, w = S - (EDGE - RIM) * 2, rad = 22;
     const v = shade();
     ctx.save();
     // 옆면(그림자 쪽으로 두께) + 바닥에 깔리는 그림자
@@ -1348,11 +1306,33 @@ window.WM = window.WM || {};
     ctx.fill();
     ctx.restore();
     ctx.save();
+    // 테두리 벽: 바닥보다 밝게 칠해 솟아 보이게 (벽 안쪽 끝 = 과일이 닿는 진짜 경계)
     ctx.fillStyle = colors.tray;
     roundRect(x0, x0, w, w, rad);
     ctx.fill();
-    // 윗면 가장자리 빛
-    ctx.strokeStyle = colors.dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.45)';
+    ctx.fillStyle = colors.dark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.4)';
+    ctx.fill();
+    // 바닥 (과일 상자와 딱 맞는다)
+    const f0 = EDGE, fw = S - EDGE * 2, frad = 10; // 모서리는 가장 작은 과일만큼만 둥글게 (물리 벽은 각져 있다)
+    ctx.fillStyle = colors.tray;
+    roundRect(f0, f0, fw, fw, frad);
+    ctx.fill();
+    // 벽이 바닥에 드리우는 그늘 + 벽 안쪽 모서리 선
+    ctx.save();
+    ctx.clip();
+    setShadow(0.3, 7, 3);
+    ctx.fillStyle = colors.trayEdge;
+    ctx.beginPath();
+    ctx.rect(-S, -S, S * 3, S * 3);
+    ctx.roundRect(f0, f0, fw, fw, frad);
+    ctx.fill('evenodd');
+    ctx.restore();
+    ctx.strokeStyle = `rgba(${colors.shadow}, ${colors.dark ? 0.5 : 0.22})`;
+    ctx.lineWidth = 1.5;
+    roundRect(f0, f0, fw, fw, frad);
+    ctx.stroke();
+    // 벽 윗면 가장자리 빛
+    ctx.strokeStyle = colors.dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1.5;
     roundRect(x0 + 0.75, x0 + 0.75, w - 1.5, w - 1.5, rad - 0.75);
     ctx.stroke();
@@ -1396,7 +1376,7 @@ window.WM = window.WM || {};
     } else {
       ctx.strokeStyle = `rgba(${colors.rgb}, 0.25)`;
     }
-    line(toWorld(LIMIT, MARGIN + 6), toWorld(LIMIT, MARGIN + G - 6));
+    line(toWorld(LIMIT, EDGE + 6), toWorld(LIMIT, S - EDGE - 6));
     ctx.restore();
 
     // 떨어뜨릴 과일 + 가이드 선 (맨 윗칸에 타일이 있으면 그 타일을 빨갛게 표시)
@@ -1411,7 +1391,7 @@ window.WM = window.WM || {};
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 7]);
       ctx.lineCap = 'round';
-      line(toWorld(spawnDepth(spot.r) + spot.r + 4, spot.along), toWorld(MARGIN + G, spot.along));
+      line(toWorld(spawnDepth(spot.r) + spot.r + 4, spot.along), toWorld(S - EDGE, spot.along));
       ctx.restore();
     }
     if (spot) {
@@ -1440,8 +1420,7 @@ window.WM = window.WM || {};
         if (age < POP_TIME) { const k = age / POP_TIME; s = 0.6 + 0.4 * (1 - (1 - k) * (1 - k)); }
       }
       if (b.escape) s *= 1 + 0.05 * Math.sin(Math.min(1, (time - b.escape.t0) / b.escape.dur) * Math.PI);
-      const sh = holdShake(b);
-      drawSprite(b.tier, b.position.x + sh.x, b.position.y + sh.y, b.circleRadius * s * sh.s, b.angle, 1, true);
+      drawSprite(b.tier, b.position.x, b.position.y, b.circleRadius * s, b.angle, 1, true);
     }
 
     // 합체 조각

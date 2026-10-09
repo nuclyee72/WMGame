@@ -12,8 +12,24 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .screen[hidden] { display: none; }
-/* 게임 화면은 카드 폭을 게임판에 맞춰 화면만큼 키운다 (게임판 폭은 app.js가 정한다) */
-.landing-card.is-game { width: auto; max-width: calc(100vw - 32px); padding-bottom: 22px; }
+/* 게임 화면은 카드가 창 전체를 채우고, 머리 줄 · 목표 · 판을 가운데에 모은다 (폭은 app.js가 정한다) */
+.slide.app-slide.is-game { padding: 0; }
+.landing-card.is-game {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.landing-card.is-game .screen[data-screen="game"] { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+.back-inline { font-family: 'Pretendard Variable', Pretendard, sans-serif; font-size: 13px; font-weight: 600; white-space: nowrap; }
 
 /* ── 홈: 단계 줄 ── */
 .set-strip { display: flex; justify-content: center; align-items: center; gap: 2px; min-height: 22px; }
@@ -184,6 +200,13 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   margin-left: -1px;
   background: rgba(var(--text-given-rgb), 0.1);
 }
+.dex-grid.is-row .has-next::after {
+  top: 50%;
+  left: 100%;
+  width: var(--gap);
+  height: 2px;
+  margin: -1px 0 0;
+}
 .dex-item canvas { display: block; }
 .dex-item.is-unknown, .dex-tile.is-unknown {
   box-shadow: inset 0 0 0 1.5px rgba(var(--text-given-rgb), 0.14);
@@ -207,6 +230,7 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   background: rgba(var(--text-given-rgb), 0.14);
   pointer-events: none;
 }
+.dex-bond.is-vertical { width: 2px; margin: 0 0 0 -1px; }
 .dex-bond-star {
   position: absolute;
   z-index: 2;
@@ -349,28 +373,44 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .help-pop { left: 16px; right: 16px; bottom: 16px; padding: 14px 16px; text-align: left; }
 .help-pop ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: rgba(var(--text-given-rgb), 0.7); word-break: keep-all; }
 
-/* ── 좁은 화면: 도감 칸을 줄인다 ── */
-@media (max-width: 480px) {
-  .play-area { gap: 6px; }
-  .dex { width: 84px; padding: 8px 6px; border-radius: 14px; }
-  .goal { padding: 0 6px; gap: 4px; font-size: 11px; }
+/* ── 폰 세로 화면: 카드가 화면을 거의 채우고, 판은 화면 폭만큼, 도감은 판 아래 가로 띠 ── */
+@media (max-width: 600px) {
+  html, body { overscroll-behavior: none; }
+  .slide.app-slide {
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .landing-card.is-game { padding-left: 10px; padding-right: 10px; }
+  .play-area { flex-direction: column; align-items: center; gap: 10px; }
+  .board { border-radius: 18px; }
+  .dex.is-row { height: auto; padding: 10px; border-radius: 18px; }
+  .dex.is-row .dex-head { display: none; }
+  .game-head { gap: 14px; margin-bottom: 10px; }
+  .game-stat strong { font-size: 24px; }
+  .game-stat.is-sub strong { font-size: 16px; }
+  .goals { gap: 6px; margin-bottom: 10px; }
+  .goal { flex: 1 1 auto; padding: 0 8px; gap: 5px; font-size: 11px; }
+  .goal-plus { display: none; }
+  .goal-icon { gap: 2px; }
+  .goal-stars { font-size: 15px; }
+}
+/* 아주 좁으면 목표 글자는 빼고 아이콘만 */
+@media (max-width: 379px) {
+  .goal { padding: 0 6px; gap: 4px; }
   .goal-text { display: none; }
   .goal.is-done .goal-icon::after { content: '✓'; font-size: 12px; font-weight: 700; }
-  .game-head { gap: 12px; }
-  .game-stat strong { font-size: 22px; }
-  .game-stat.is-sub strong { font-size: 15px; }
+}
 }
 
 /* ── 낮은 화면 ── */
 @media (max-height: 680px) {
   .slide.app-slide { padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
-  .landing-card.is-game { padding-bottom: 18px; }
+  .landing-card.is-game { padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   .set-panel { gap: 10px; }
   .slot-grid { gap: 6px; }
 }
 @media (max-height: 560px) {
   .slide.app-slide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
-  .landing-card.is-game { padding-bottom: 14px; }
+  .landing-card.is-game { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
   .game-head { height: 32px; margin-bottom: 8px; }
   .game-stat strong { font-size: 22px; }
   .icon-btn { height: 32px; min-width: 32px; }

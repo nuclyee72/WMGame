@@ -52,7 +52,8 @@ window.WM = window.WM || {};
     document.querySelectorAll('.screen').forEach((el) => { el.hidden = el.dataset.screen !== name; });
     card.classList.toggle('is-sub', name !== 'home');
     card.classList.toggle('is-game', name === 'game');
-    backBtn.hidden = name === 'home';
+    card.parentElement.classList.toggle('is-game', name === 'game'); // 게임 화면은 창 전체를 쓴다
+    backBtn.hidden = name === 'home' || name === 'game'; // 게임 화면은 머리 줄 오른쪽 끝의 Back을 쓴다
     $('#help-pop').hidden = true;
 
     if (name === 'game') {
@@ -66,10 +67,12 @@ window.WM = window.WM || {};
     if (push) history.pushState({ screen: name }, '');
   }
 
-  backBtn.addEventListener('click', () => {
+  function goBack() {
     if (history.state && history.state.screen) history.back();
     else show('home', false);
-  });
+  }
+  backBtn.addEventListener('click', goBack);
+  $('#game-back-btn').addEventListener('click', goBack);
   window.addEventListener('popstate', (e) => show((e.state && e.state.screen) || 'home', false));
 
   // ── 홈 ──
@@ -153,8 +156,13 @@ window.WM = window.WM || {};
     renderDex();
   }
 
-  // 게임판 크기: 화면 안에서 정사각형으로 가능한 한 크게 (도감 칸·목표 줄 몫은 빼고)
-  const MAX_BOARD = 640;
+  // 폰 세로 화면: 도감을 판 아래 가로 띠로 놓고 판을 화면 폭만큼 키운다
+  const mobileQuery = window.matchMedia('(max-width: 600px)');
+  const isMobile = () => mobileQuery.matches;
+
+  // 게임판 크기: 화면 안에서 정사각형으로 가능한 한 크게 (도감·목표 줄 몫은 빼고)
+  const MAX_BOARD = 820;
+  const DEX_ROW_GAP = 4, DEX_LINK = 20; // 가로 띠: 과일 줄 · 연결 줄 · 타일 줄
   function fitBoard() {
     const board = $('#board');
     const dex = $('#dex');
@@ -162,22 +170,43 @@ window.WM = window.WM || {};
     const outer = (el) => el.offsetHeight + px(getComputedStyle(el).marginBottom);
     const cs = getComputedStyle(card);
     const slide = getComputedStyle(card.parentElement);
-    const gap = px(getComputedStyle($('.play-area')).columnGap);
-    const availW = window.innerWidth - px(slide.paddingLeft) - px(slide.paddingRight)
-      - px(cs.paddingLeft) - px(cs.paddingRight) - dex.offsetWidth - gap;
-    const availH = window.innerHeight - px(slide.paddingTop) - px(slide.paddingBottom)
+    const play = getComputedStyle($('.play-area'));
+    const roomW = window.innerWidth - px(slide.paddingLeft) - px(slide.paddingRight) - px(cs.paddingLeft) - px(cs.paddingRight);
+    const roomH = window.innerHeight - px(slide.paddingTop) - px(slide.paddingBottom)
       - px(cs.paddingTop) - px(cs.paddingBottom) - outer($('.game-head')) - outer($('#goals'));
-    const w = Math.max(160, Math.floor(Math.min(availW, availH, MAX_BOARD)));
+    let w;
+    if (isMobile()) {
+      // 도감 띠 높이는 판 폭에 따라 정해지므로 두 번 맞춘다
+      const ds = getComputedStyle(dex);
+      const dexH = (bw) => px(ds.paddingTop) + px(ds.paddingBottom) + dexSize(bw) * 2 + DEX_LINK + DEX_ROW_GAP * 2;
+      w = Math.min(roomW, MAX_BOARD);
+      for (let i = 0; i < 2; i++) w = Math.min(roomW, roomH - px(play.rowGap) - dexH(w), MAX_BOARD);
+      w = Math.max(160, Math.floor(w));
+      dex.style.width = w + 'px';
+      $('#goals').style.width = $('.game-head').style.width = w + 'px';
+    } else {
+      dex.style.width = '';
+      w = Math.max(160, Math.floor(Math.min(roomW - dex.offsetWidth - px(play.columnGap), roomH, MAX_BOARD)));
+      $('#goals').style.width = $('.game-head').style.width = (w + px(play.columnGap) + dex.offsetWidth) + 'px';
+    }
     board.style.width = w + 'px';
-    $('#goals').style.width = (w + gap + dex.offsetWidth) + 'px';
     WM.game.resize(w);
     renderDex();
+  }
+
+  // 가로 띠에서 한 칸 크기 (8단계가 한 줄에 들어가게)
+  function dexSize(bw) {
+    const n = WM.game.tierCount();
+    const ds = getComputedStyle($('#dex'));
+    const inner = bw - (parseFloat(ds.paddingLeft) || 0) - (parseFloat(ds.paddingRight) || 0);
+    return Math.max(14, Math.min(40, Math.floor((inner - (n - 1) * 6) / n)));
   }
 
   // 별 (글자 ★은 글꼴마다 위치가 달라 SVG로 가운데를 맞춘다)
   const STAR = '<svg class="star-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.85 5.95 6.55.8-4.8 4.55 1.22 6.5L12 17.2l-5.82 3.2 1.22-6.5-4.8-4.55 6.55-.8z"/></svg>';
 
-  // ── 도감: 왼쪽 과일 단계, 오른쪽 2048 타일 (32가 7단계 옆, 64가 8단계 옆에 오도록 두 줄 내려 놓는다) ──
+  // ── 도감: 과일 단계와 2048 타일 (32가 7단계, 64가 8단계와 나란하도록 두 칸 밀어 놓는다) ──
+  // 데스크톱은 판 옆 세로 두 줄, 폰은 판 아래 가로 두 줄
   let dexShown = { fruit: 0, tile: 0 }; // 마지막으로 그린 단계 (새로 열린 칸에 효과를 주려고)
   function renderDex() {
     const gridEl = $('#dex-grid');
@@ -190,20 +219,38 @@ window.WM = window.WM || {};
     const boardH = $('#board').offsetHeight;
     if (!boardH) return;
     const dex = $('#dex');
-    dex.style.height = boardH + 'px';
-    const ds = getComputedStyle(dex);
-    const inner = boardH - parseFloat(ds.paddingTop) - parseFloat(ds.paddingBottom) - $('.dex-head').offsetHeight - 6;
-    const gap = 8, link = 24;
-    const colW = (dex.clientWidth - parseFloat(ds.paddingLeft) - parseFloat(ds.paddingRight) - link) / 2;
-    const size = Math.max(10, Math.min(colW - 2, Math.floor((inner - (n - 1) * gap) / n)));
+    const row = isMobile();
+    dex.classList.toggle('is-row', row);
+    gridEl.classList.toggle('is-row', row);
+
+    let size, gap;
+    if (row) {
+      dex.style.height = '';
+      gap = 6;
+      size = dexSize(dex.offsetWidth);
+      gridEl.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+      gridEl.style.gridTemplateRows = `${size}px ${DEX_LINK}px ${size}px`;
+      gridEl.style.rowGap = DEX_ROW_GAP + 'px';
+      gridEl.style.columnGap = gap + 'px';
+    } else {
+      dex.style.height = boardH + 'px';
+      const ds = getComputedStyle(dex);
+      const inner = boardH - parseFloat(ds.paddingTop) - parseFloat(ds.paddingBottom) - $('.dex-head').offsetHeight - 6;
+      const link = 24;
+      gap = 8;
+      const colW = (dex.clientWidth - parseFloat(ds.paddingLeft) - parseFloat(ds.paddingRight) - link) / 2;
+      size = Math.max(10, Math.min(colW - 2, Math.floor((inner - (n - 1) * gap) / n)));
+      gridEl.style.gridTemplateColumns = `1fr ${link}px 1fr`;
+      gridEl.style.gridTemplateRows = '';
+      gridEl.style.rowGap = gap + 'px';
+      gridEl.style.columnGap = '';
+    }
     gridEl.style.setProperty('--size', size + 'px');
     gridEl.style.setProperty('--gap', gap + 'px');
-    gridEl.style.gridTemplateColumns = `1fr ${link}px 1fr`;
-    gridEl.style.rowGap = gap + 'px';
     const freshFruit = top > dexShown.fruit && dexShown.fruit > 0;
     const freshTile = maxTile > dexShown.tile && dexShown.tile > 0;
 
-    gridEl.innerHTML = '';
+    const fruitsEl = [], linksEl = [], tilesEl = [];
     for (let i = 0; i < n; i++) {
       // 과일
       const f = document.createElement('div');
@@ -225,10 +272,10 @@ window.WM = window.WM || {};
         f.style.fontSize = Math.round(size * 0.42) + 'px';
         f.textContent = '?';
       }
-      gridEl.append(f);
+      fruitsEl.push(f);
 
-      // 가운데 칸은 비워 두고, 7단계 ↔ 32 연결선은 아래에서 따로 긋는다
-      gridEl.append(document.createElement('div'));
+      // 사이 칸은 비워 두고, 7단계 ↔ 32 연결선은 아래에서 따로 긋는다
+      linksEl.push(document.createElement('div'));
 
       // 타일 (2, 4, 8 … 64)
       const v = i >= 2 ? Math.pow(2, i - 1) : 0;
@@ -254,19 +301,27 @@ window.WM = window.WM || {};
           t.style.fontSize = Math.round(size * 0.44) + 'px';
         }
       }
-      gridEl.append(t);
+      tilesEl.push(t);
     }
+    gridEl.innerHTML = '';
+    if (row) gridEl.append(...fruitsEl, ...linksEl, ...tilesEl);
+    else for (let i = 0; i < n; i++) gridEl.append(fruitsEl[i], linksEl[i], tilesEl[i]);
 
     // 7단계 ↔ 32: 두 칸 가운데를 잇는 선 + 한가운데 별 배지 (이루면 금색)
-    const items = gridEl.children;
-    const a = items[(n - 2) * 3], b = items[(n - 2) * 3 + 2];
-    const x0 = a.offsetLeft + a.offsetWidth / 2, x1 = b.offsetLeft + b.offsetWidth / 2;
-    const y = a.offsetTop + a.offsetHeight / 2;
+    const a = fruitsEl[n - 2], b = tilesEl[n - 2];
+    const ax = a.offsetLeft + a.offsetWidth / 2, ay = a.offsetTop + a.offsetHeight / 2;
+    const bx = b.offsetLeft + b.offsetWidth / 2, by = b.offsetTop + b.offsetHeight / 2;
     const bond = document.createElement('div');
-    bond.className = 'dex-bond' + (goals.socket ? ' is-done' : '');
-    bond.style.left = x0 + 'px';
-    bond.style.width = (x1 - x0) + 'px';
-    bond.style.top = y + 'px';
+    bond.className = 'dex-bond' + (row ? ' is-vertical' : '') + (goals.socket ? ' is-done' : '');
+    if (row) {
+      bond.style.left = ax + 'px';
+      bond.style.top = ay + 'px';
+      bond.style.height = (by - ay) + 'px';
+    } else {
+      bond.style.left = ax + 'px';
+      bond.style.top = ay + 'px';
+      bond.style.width = (bx - ax) + 'px';
+    }
     bond.title = 'Goal: Tier 7 into 32';
     bond.innerHTML = `<span class="dex-bond-star">${STAR}</span>`;
     gridEl.append(bond);

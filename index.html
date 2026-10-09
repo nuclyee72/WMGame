@@ -47,7 +47,7 @@
         <div class="game-head">
           <div class="game-stat"><span>Score</span><strong id="score">0</strong></div>
           <div class="game-stat is-sub"><span>Best</span><strong id="best">0</strong></div>
-          <div class="game-next"><span>Next</span><canvas id="next-canvas" width="30" height="30"></canvas></div>
+          <div class="game-next"><span>Next</span><canvas id="next-canvas" width="30" height="30"></canvas><span class="next-tile" id="next-tile" title="Next tile">2</span></div>
           <button class="icon-btn" type="button" id="restart-btn" aria-label="Restart" title="Restart">↻</button>
           <button class="icon-btn back-inline" type="button" id="game-back-btn">‹ Back</button>
         </div>
@@ -56,7 +56,7 @@
           <div class="goal" data-goal="g64"><span class="goal-icon"><span class="mini-tile" data-v="64">64</span></span><span class="goal-text">Make 64</span></div>
           <div class="goal" data-goal="socket"><span class="goal-icon"><canvas data-sprite="6"></canvas><span class="goal-plus">+</span><span class="mini-tile" data-v="32">32</span></span><span class="goal-text">Fill 32</span></div>
           <div class="goal" data-goal="top"><span class="goal-icon"><canvas data-sprite="7"></canvas></span><span class="goal-text">Tier 8</span></div>
-          <div class="goal-stars" id="goal-stars" aria-label="Stars"><span>★</span><span>★</span><span>★</span></div>
+          <div class="goal-stars" id="goal-stars" aria-label="Stars"><span>★</span><span>★</span><span>★</span><span class="blue" hidden>★</span><span class="blue" hidden>★</span></div>
         </div>
         <div class="play-area">
           <div class="board" id="board">
@@ -64,7 +64,8 @@
             <div class="board-over" id="over" hidden>
               <div class="over-panel">
                 <p class="over-title" id="over-title">Game over</p>
-                <div class="over-stars" id="over-stars"><span>★</span><span>★</span><span>★</span></div>
+                <p class="over-reason" id="over-reason" hidden>No room for the new tile</p>
+                <div class="over-stars" id="over-stars"><span>★</span><span>★</span><span>★</span><span class="blue" hidden>★</span><span class="blue" hidden>★</span></div>
                 <strong class="over-score" id="over-score">0</strong>
                 <span class="daily-card-status" id="over-badge">Best 0</span>
                 <div class="landing-row">
@@ -105,11 +106,15 @@
           <li>Aim in the strip outside the grid and release to drop a fruit</li>
           <li>Two matching fruits merge into the next tier</li>
           <li>When Next shows ✥, you must swipe: gravity turns that way, 2048 tiles slide, and a new tile appears</li>
+          <li>After each swipe a new tile appears — its value shows next to Next. On a swipe turn, a dashed cell (picked at random among empty cells) shows where it will land, whichever way you swipe</li>
+          <li>If a tile slides into that cell, the new tile lands on a random empty cell instead; if every cell holds a tile, the game ends</li>
+          <li>The tile appears once the fruit settles, or when you make the next swipe (fruit in its way slides aside)</li>
           <li>You can't drop into a column whose top cell holds a tile</li>
           <li>Tiles push a little fruit; if too much is in the way they bounce back</li>
           <li>A 32 tile is hollow — roll a Tier 7 fruit into it and both burst</li>
+          <li>A 64 tile is an empty frame — every fruit passes through it, but it still slides and merges</li>
           <li>Fruit poking past the dashed line for 2 seconds ends the game</li>
-          <li>Goals: make 64, fill a 32, make Tier 8 — one star each</li>
+          <li>Goals: make 64, fill a 32, make Tier 8 — one star each. The game keeps going after all three</li>
           <li>Keys: A / D aim · Space drop · arrows swipe</li>
           <li>Plush photos in the Plush image set are © NEXON — unofficial fan project</li>
         </ul>

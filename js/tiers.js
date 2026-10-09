@@ -13,9 +13,9 @@ window.WM = window.WM || {};
     { name: 'Apple', emoji: '🍎', color: '#e2453c' },
     { name: 'Pear', emoji: '🍐', color: '#d6cf62' },
     { name: 'Peach', emoji: '🍑', color: '#f7a8a0' },
-    { name: 'Pineapple', emoji: '🍍', color: '#f2c94c' },
+    { name: 'Watermelon', emoji: '🍉', color: '#3f9e4a' }, // 숨은 9단계
     { name: 'Melon', emoji: '🍈', color: '#9bd36a' },
-    { name: 'Watermelon', emoji: '🍉', color: '#3f9e4a' },
+    { name: 'Pineapple', emoji: '🍍', color: '#f2c94c' },
     { name: 'Coconut', emoji: '🥥', color: '#8b5e3c' },
     { name: 'Pumpkin', emoji: '🎃', color: '#e8833a' },
     { name: 'Earth', emoji: '🌍', color: '#3b7fd9' },
@@ -25,9 +25,9 @@ window.WM = window.WM || {};
   // 규칙은 고정 (설정에서 바꿀 수 없다. 이미지만 바꾼다)
   WM.DEFAULT_SETTINGS = {
     tierCount: 8,        // 단계 수
-    dropCount: 2,        // 떨어지는 단계 수 (앞에서부터)
-    minR: 12,            // 첫 단계 반지름 (월드 단위, 칸 한 변 100)
-    maxR: 60,            // 마지막 단계 반지름
+    dropCount: 3,        // 떨어지는 단계 수 (앞에서부터)
+    minR: 10,            // 첫 단계 반지름 (월드 단위, 칸 한 변 100)
+    maxR: 52,            // 마지막 단계 반지름 (숨은 9단계는 같은 비율로 한 단계 더 크다)
     lastMerge: 'vanish', // 마지막 단계 둘이 만나면 사라진다
     fit: 'contain',      // 올린 이미지는 모양 그대로
   };

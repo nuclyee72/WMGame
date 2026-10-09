@@ -71,6 +71,20 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   background: var(--surface-1);
 }
 .game-next canvas { display: block; width: 30px; height: 30px; }
+.game-next .next-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #eee4da;
+  color: #776e65;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
 
 .icon-btn {
   min-width: 40px;
@@ -130,6 +144,7 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   box-shadow: 0 10px 30px rgba(var(--shadow-rgb), 0.22);
 }
 .over-title { margin: 0; font-size: 12px; font-weight: 700; color: rgba(var(--text-given-rgb), 0.55); }
+.over-reason { margin: -2px 0 0; font-size: 12px; font-weight: 600; color: var(--conflict); text-align: center; }
 .over-score {
   font-family: 'Outfit', 'Inter', sans-serif;
   font-size: 30px;
@@ -219,6 +234,7 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 }
 .star-svg { display: block; width: 46%; height: 46%; fill: currentColor; }
 .dex-item.is-top, .dex-tile.is-top { box-shadow: 0 0 0 2px var(--surface-solid), 0 0 0 4px var(--text-input); }
+.dex-item.is-hidden, .dex-tile.is-hidden { box-shadow: 0 0 0 2px var(--surface-solid), 0 0 0 4px #4a8fe0; }
 .dex-item.is-new, .dex-tile.is-new { animation: dex-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes dex-pop { 0% { transform: scale(0.3); } 100% { transform: scale(1); } }
 /* 7단계 ↔ 32 → 합쳐진다는 표시: 두 칸 가운데를 잇는 선 + 별 배지 (목표라 회색, 이루면 금색) */
@@ -299,6 +315,8 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .goal-stars, .over-stars { flex: none; display: flex; gap: 1px; font-size: 18px; line-height: 1; }
 .goal-stars span, .over-stars span { color: rgba(var(--text-given-rgb), 0.15); transition: color 0.3s ease, transform 0.3s ease; }
 .goal-stars span.on, .over-stars span.on { color: #f2b33d; }
+/* 숨은 요소(9단계 과일 · 128 타일)를 만들면 하나씩 생기는 파란 별 — 메인 목표가 아니라 처음엔 안 보인다 */
+.goal-stars span.blue.on, .over-stars span.blue.on { color: #4a8fe0; }
 .goal-stars span.on { animation: star-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes star-pop { 0% { transform: scale(0.4); } 100% { transform: scale(1); } }
 .over-stars { font-size: 28px; gap: 4px; margin: 2px 0; }

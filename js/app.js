@@ -25,6 +25,7 @@ window.WM = window.WM || {};
     WM.game.init({
       canvas: $('#board-canvas'),
       nextCanvas: $('#next-canvas'),
+      nextTileEl: $('#next-tile'),
       onScore: (s) => {
         $('#score').textContent = fmt(s);
         $('#best').textContent = fmt(Math.max(WM.stats.best, s));
@@ -107,13 +108,16 @@ window.WM = window.WM || {};
     WM.game.newGame();
   }
 
-  function paintStars(el, n) {
-    el.querySelectorAll('span').forEach((s, i) => s.classList.toggle('on', i < n));
+  // 금별 n개 + 파란 별 blue개 (파란 별은 얻은 것만 보인다)
+  function paintStars(el, n, blue) {
+    el.querySelectorAll('span:not(.blue)').forEach((s, i) => s.classList.toggle('on', i < n));
+    el.querySelectorAll('span.blue').forEach((s, i) => { s.hidden = i >= blue; s.classList.toggle('on', i < blue); });
   }
 
   function showOver(r) {
     $('#over-title').textContent = r.cleared ? 'All clear!' : 'Game over';
-    paintStars($('#over-stars'), r.stars);
+    $('#over-reason').hidden = !r.noRoom;
+    paintStars($('#over-stars'), r.stars, r.blue);
     $('#over-score').textContent = fmt(r.score);
     const badge = $('#over-badge');
     if (r.isBest) { badge.dataset.status = 'solved'; badge.textContent = '🏆 New best'; }
@@ -152,7 +156,7 @@ window.WM = window.WM || {};
   function renderGoals(g) {
     document.querySelectorAll('#goals .goal').forEach((el) => el.classList.toggle('is-done', !!g[el.dataset.goal]));
     const n = (g.g64 ? 1 : 0) + (g.socket ? 1 : 0) + (g.top ? 1 : 0);
-    paintStars($('#goal-stars'), n);
+    paintStars($('#goal-stars'), n, (g.fruit9 ? 1 : 0) + (g.tile128 ? 1 : 0));
     renderDex();
   }
 
@@ -194,9 +198,13 @@ window.WM = window.WM || {};
     renderDex();
   }
 
-  // 가로 띠에서 한 칸 크기 (8단계가 한 줄에 들어가게)
+  // 도감 줄 수: 과일 단계 수 + 숨은 9단계·128을 하나라도 만들었으면 한 줄 더
+  const HIDDEN_TILE = 128;
+  const dexRows = () => WM.game.tierCount() + (WM.game.maxTier() > WM.game.tierCount() || WM.game.maxTile() >= HIDDEN_TILE ? 1 : 0);
+
+  // 가로 띠에서 한 칸 크기 (모든 단계가 한 줄에 들어가게)
   function dexSize(bw) {
-    const n = WM.game.tierCount();
+    const n = dexRows();
     const ds = getComputedStyle($('#dex'));
     const inner = bw - (parseFloat(ds.paddingLeft) || 0) - (parseFloat(ds.paddingRight) || 0);
     return Math.max(14, Math.min(40, Math.floor((inner - (n - 1) * 6) / n)));
@@ -214,6 +222,8 @@ window.WM = window.WM || {};
     const top = WM.game.maxTier();
     const maxTile = WM.game.maxTile();
     const goals = WM.game.goals();
+    const rows = dexRows(); // 숨은 9단계·128을 만들었으면 맨 끝에 한 줄 더
+    const fruit9 = top > n, tile128 = maxTile >= HIDDEN_TILE;
     if (top < dexShown.fruit) dexShown.fruit = top; // 새 판
     if (maxTile < dexShown.tile) dexShown.tile = maxTile;
     const boardH = $('#board').offsetHeight;
@@ -228,7 +238,7 @@ window.WM = window.WM || {};
       dex.style.height = '';
       gap = 6;
       size = dexSize(dex.offsetWidth);
-      gridEl.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+      gridEl.style.gridTemplateColumns = `repeat(${rows}, 1fr)`;
       gridEl.style.gridTemplateRows = `${size}px ${DEX_LINK}px ${size}px`;
       gridEl.style.rowGap = DEX_ROW_GAP + 'px';
       gridEl.style.columnGap = gap + 'px';
@@ -239,7 +249,7 @@ window.WM = window.WM || {};
       const link = 24;
       gap = 8;
       const colW = (dex.clientWidth - parseFloat(ds.paddingLeft) - parseFloat(ds.paddingRight) - link) / 2;
-      size = Math.max(10, Math.min(colW - 2, Math.floor((inner - (n - 1) * gap) / n)));
+      size = Math.max(10, Math.min(colW - 2, Math.floor((inner - (rows - 1) * gap) / rows)));
       gridEl.style.gridTemplateColumns = `1fr ${link}px 1fr`;
       gridEl.style.gridTemplateRows = '';
       gridEl.style.rowGap = gap + 'px';
@@ -251,16 +261,19 @@ window.WM = window.WM || {};
     const freshTile = maxTile > dexShown.tile && dexShown.tile > 0;
 
     const fruitsEl = [], linksEl = [], tilesEl = [];
-    for (let i = 0; i < n; i++) {
-      // 과일
+    for (let i = 0; i < rows; i++) {
+      // 과일 (숨은 9단계는 만들기 전엔 칸도 선도 없다)
       const f = document.createElement('div');
-      f.className = 'dex-item' + (i < n - 1 ? ' has-next' : '');
-      if (i < top) {
+      f.className = i === n && !fruit9 ? '' : 'dex-item' + (i < n - 1 || (i === n - 1 && fruit9) ? ' has-next' : '');
+      if (i === n && !fruit9) {
+        // 빈칸
+      } else if (i < top) {
         const cv = document.createElement('canvas');
         WM.paintSprite(cv, i, size);
         f.append(cv);
-        f.title = `Tier ${i + 1}`;
-        if (i === top - 1) f.classList.add('is-top');
+        f.title = i === n ? 'Hidden: Tier 9' : `Tier ${i + 1}`;
+        if (i === n) f.classList.add('is-hidden');
+        else if (i === top - 1) f.classList.add('is-top');
         if (freshFruit && i >= dexShown.fruit) f.classList.add('is-new');
       } else if (i === n - 1) {
         // 목표(마지막 단계)는 ? 대신 회색 별
@@ -277,17 +290,18 @@ window.WM = window.WM || {};
       // 사이 칸은 비워 두고, 7단계 ↔ 32 연결선은 아래에서 따로 긋는다
       linksEl.push(document.createElement('div'));
 
-      // 타일 (2, 4, 8 … 64)
+      // 타일 (2, 4, 8 … 64, 숨은 128은 만들기 전엔 칸도 선도 없다)
       const v = i >= 2 ? Math.pow(2, i - 1) : 0;
       const t = document.createElement('div');
-      if (v) {
-        t.className = 'dex-tile' + (i < n - 1 ? ' has-next' : '');
+      if (v && (i < n || tile128)) {
+        t.className = 'dex-tile' + (i < n - 1 || (i === n - 1 && tile128) ? ' has-next' : '');
         if (v <= maxTile) {
           const [bg, fg] = WM.TILE_COLORS[v];
           t.style.background = bg;
           t.style.color = fg;
           t.textContent = v;
-          if (v === maxTile) t.classList.add('is-top');
+          if (i === n) { t.classList.add('is-hidden'); t.title = 'Hidden: 128'; }
+          else if (v === maxTile) t.classList.add('is-top');
           if (freshTile && v > dexShown.tile) t.classList.add('is-new');
           t.style.fontSize = Math.round(size * (v >= 10 ? 0.36 : 0.44)) + 'px';
         } else if (v === 64) {
@@ -305,7 +319,7 @@ window.WM = window.WM || {};
     }
     gridEl.innerHTML = '';
     if (row) gridEl.append(...fruitsEl, ...linksEl, ...tilesEl);
-    else for (let i = 0; i < n; i++) gridEl.append(fruitsEl[i], linksEl[i], tilesEl[i]);
+    else for (let i = 0; i < rows; i++) gridEl.append(fruitsEl[i], linksEl[i], tilesEl[i]);
 
     // 7단계 ↔ 32: 두 칸 가운데를 잇는 선 + 한가운데 별 배지 (이루면 금색)
     const a = fruitsEl[n - 2], b = tilesEl[n - 2];

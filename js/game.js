@@ -46,6 +46,7 @@ window.WM = window.WM || {};
   const PUSH_AREA = 4500;           // 타일 앞 줄(한 칸 안)에 걸린 과일 면적 합이 이보다 크면 못 밀고 튕긴다
   const JAM_EXTRA = 6;              // 과일이 (지금 속도 + 이만큼)보다 깊이 파고들면 벽·타일에 끼인 것
   const JAM_STEPS = 2;              // …이 상태가 이만큼 이어지면 튕긴다
+  const PACKING = 0.72;             // 과일이 빈 공간을 채울 수 있는 비율 (둥글어서 빈틈 없이는 못 채운다)
 
   // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 둘이 합쳐진다 ──
   // 합치기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 32는 64처럼 빈 테두리일 뿐)
@@ -773,6 +774,32 @@ window.WM = window.WM || {};
     return { load: touching ? load : 0, jammed };
   }
 
+  // 타일이 가는 칸에 들어가면 앞쪽(다음 막힌 타일이나 벽까지)에 남는 자리로는 앞 과일이 다 못 들어가는지
+  // (판이 거의 찼을 때 과일을 억지로 눌러 넣으며 밀지 못하게: 못 들어가면 튕긴다)
+  function laneCrowded(t) {
+    const d = DIRS[gravity];
+    const proj = (q) => q.x * d.x + q.y * d.y;
+    const p = t.body.position;
+    const c = container();
+    let end = d.x > 0 ? c.x1 : d.x < 0 ? -c.x0 : d.y > 0 ? c.y1 : -c.y0;
+    for (let col = t.to.col + d.x, row = t.to.row + d.y; col >= 0 && col < COLS && row >= 0 && row < ROWS; col += d.x, row += d.y) {
+      const o = grid[row][col];
+      if (o && o !== t && !hollow(o.value) && o.state !== 'move') { end = proj(cellCenter(col, row)) - BODY / 2; break; }
+    }
+    const room = (end - (proj(cellCenter(t.to.col, t.to.row)) + BODY / 2)) * BODY * PACKING;
+    const face = proj(p) + BODY / 2;
+    let area = 0;
+    for (const b of fruits) {
+      if (b.escape) continue;
+      const r = b.circleRadius, a = proj(b.position);
+      if (a + r <= face - 1 || a - r >= end) continue;
+      const side = Math.abs((b.position.x - p.x) * d.y) + Math.abs((b.position.y - p.y) * d.x);
+      const inLane = clamp((BODY / 2 + r - side) / (2 * r), 0, 1); // 줄 안에 든 만큼만 센다
+      area += Math.PI * r * r * inLane;
+    }
+    return area > room;
+  }
+
   // 타일 앞면에서 가는 길에 있는 가장 가까운 과일까지 거리 (32·64는 속이 비어 있어 따로 보지 않는다)
   function frontGap(t) {
     if (hollow(t.value)) return Infinity;
@@ -849,7 +876,7 @@ window.WM = window.WM || {};
       const { load, jammed } = frontContact(t);
       t.pushing = load > 0;
       t.jam = jammed ? t.jam + 1 : 0;
-      if (t.jam >= JAM_STEPS || load > PUSH_AREA) bounce(t);
+      if (t.jam >= JAM_STEPS || load > PUSH_AREA || (t.pushing && laneCrowded(t))) bounce(t);
     }
     if ([...tiles].every((t) => t.state === 'done')) endPhase();
   }

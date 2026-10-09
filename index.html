@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Watermelon 2048</title>
+  <meta name="theme-color" content="#f1e4cf"/>
+  <script>
+    // body가 그려지기 전에 다크 모드를 먼저 적용해서 라이트 테마가 번쩍이는 걸 막는다
+    try { if (localStorage.getItem('daily-dark-mode') === '1') document.documentElement.setAttribute('data-theme', 'dark'); } catch {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&display=swap"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+  <link rel="stylesheet" href="daily-ui.css"/>
+  <link rel="stylesheet" href="game.css"/>
+</head>
+<body>
+  <main class="slide app-slide">
+    <section class="landing-card" id="card">
+      <button class="back-btn" type="button" id="back-btn" hidden>‹ Back</button>
+
+      <!-- 홈 -->
+      <div class="screen" data-screen="home">
+        <h2 class="landing-title"><span class="landing-title-icon">🍉</span> Watermelon 2048</h2>
+        <p class="landing-date">Merge fruits, slide tiles, earn stars</p>
+        <div class="landing-stack">
+          <div class="set-strip" id="home-strip" aria-hidden="true"></div>
+          <div class="stats-numbers">
+            <div class="stats-num"><strong id="stat-best">0</strong><span>Best score</span></div>
+            <div class="stats-num"><strong id="stat-games">0</strong><span>Games</span></div>
+            <div class="stats-num"><strong id="stat-stars">-</strong><span>Best stars</span></div>
+          </div>
+          <p class="error" id="home-error"></p>
+          <button class="landing-btn primary-btn" type="button" id="play-btn">Play</button>
+          <button class="landing-btn" type="button" id="settings-btn">Fruit images</button>
+          <div class="landing-mini-actions">
+            <button class="landing-mini-btn" type="button" id="help-btn">How to play</button>
+            <button class="landing-mini-btn" type="button" id="dark-toggle">Dark mode</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 게임 -->
+      <div class="screen" data-screen="game" hidden>
+        <div class="game-head">
+          <div class="game-stat"><span>Score</span><strong id="score">0</strong></div>
+          <div class="game-stat is-sub"><span>Best</span><strong id="best">0</strong></div>
+          <div class="game-next"><span>Next</span><canvas id="next-canvas" width="30" height="30"></canvas></div>
+          <button class="icon-btn" type="button" id="restart-btn" aria-label="Restart" title="Restart">↻</button>
+        </div>
+        <!-- 목표 셋: 이룬 만큼 별 -->
+        <div class="goals" id="goals">
+          <div class="goal" data-goal="g64"><span class="goal-icon"><span class="mini-tile" data-v="64">64</span></span><span class="goal-text">Make 64</span></div>
+          <div class="goal" data-goal="socket"><span class="goal-icon"><canvas data-sprite="6"></canvas><span class="goal-plus">+</span><span class="mini-tile" data-v="32">32</span></span><span class="goal-text">Fill 32</span></div>
+          <div class="goal" data-goal="top"><span class="goal-icon"><canvas data-sprite="7"></canvas></span><span class="goal-text">Tier 8</span></div>
+          <div class="goal-stars" id="goal-stars" aria-label="Stars"><span>★</span><span>★</span><span>★</span></div>
+        </div>
+        <div class="play-area">
+          <div class="board" id="board">
+            <canvas id="board-canvas"></canvas>
+            <div class="board-over" id="over" hidden>
+              <div class="over-panel">
+                <p class="over-title" id="over-title">Game over</p>
+                <div class="over-stars" id="over-stars"><span>★</span><span>★</span><span>★</span></div>
+                <strong class="over-score" id="over-score">0</strong>
+                <span class="daily-card-status" id="over-badge">Best 0</span>
+                <div class="landing-row">
+                  <button class="landing-btn primary-btn" type="button" id="again-btn">Play again</button>
+                  <button class="landing-btn small-btn" type="button" id="over-settings-btn">Images</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 도감: 과일 단계와 2048 타일. 이번 판에서 만든 것까지 보이고 나머지는 ? -->
+          <div class="dex" id="dex" aria-label="Collection">
+            <div class="dex-head"><span>Fruit</span><span>Tile</span></div>
+            <div class="dex-grid" id="dex-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 이미지 -->
+      <div class="screen" data-screen="settings" hidden>
+        <div class="landing-stack">
+          <p class="sub-title">Fruit images</p>
+          <div class="seg" id="set-tabs"></div>
+          <div class="set-panel">
+            <div class="slot-grid" id="slot-grid"></div>
+            <div class="landing-row" id="custom-actions">
+              <button class="landing-btn small-btn" type="button" id="multi-btn">Upload several</button>
+              <button class="landing-btn small-btn" type="button" id="clear-btn">Clear all</button>
+            </div>
+            <p class="note" id="images-note">Tap a slot to upload a PNG · empty slots use the default fruit</p>
+            <p class="error" id="images-error"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="popover help-pop" id="help-pop" hidden>
+        <p class="section-title">How to play</p>
+        <ul>
+          <li>Aim in the strip outside the grid and release to drop a fruit</li>
+          <li>Two matching fruits merge into the next tier</li>
+          <li>When Next shows ✥, you must swipe: gravity turns that way, 2048 tiles slide, and a new tile appears</li>
+          <li>You can't drop into a column whose top cell holds a tile</li>
+          <li>Tiles push a little fruit; if too much is in the way they bounce back</li>
+          <li>A 32 tile is hollow — roll a Tier 7 fruit into it and both burst</li>
+          <li>Fruit poking past the dashed line for 2 seconds ends the game</li>
+          <li>Goals: make 64, fill a 32, make Tier 8 — one star each</li>
+          <li>Keys: A / D aim · Space drop · arrows swipe</li>
+        </ul>
+      </div>
+
+      <input type="file" id="file-one" accept="image/png,image/webp,image/jpeg,image/gif" hidden/>
+      <input type="file" id="file-many" accept="image/png,image/webp,image/jpeg,image/gif" multiple hidden/>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+  <script src="js/tiers.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/sets.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

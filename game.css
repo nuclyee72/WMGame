@@ -1,0 +1,381 @@
+/* game.css — 수박 게임 전용 컴포넌트. daily-ui.css 토큰만 쓴다. */
+
+/* 한글은 Pretendard, 숫자는 Outfit */
+body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-serif; }
+
+/* 게임판 받침 색 (캔버스가 읽는다) */
+:root { --board-tray: #e7d9c4; --board-tray-edge: #d3c1a6; --board-slot: #f3eadd; }
+[data-theme="dark"] { --board-tray: #3a3128; --board-tray-edge: #241e18; --board-slot: #2d2620; }
+
+/* 하단 점이 없으니 아래 여백을 위와 맞춘다 */
+.slide.app-slide {
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.screen[hidden] { display: none; }
+/* 게임 화면은 카드 폭을 게임판에 맞춰 화면만큼 키운다 (게임판 폭은 app.js가 정한다) */
+.landing-card.is-game { width: auto; max-width: calc(100vw - 32px); padding-bottom: 22px; }
+
+/* ── 홈: 단계 줄 ── */
+.set-strip { display: flex; justify-content: center; align-items: center; gap: 2px; min-height: 22px; }
+.set-strip canvas { display: block; }
+
+/* ── 게임 머리: 점수 · 최고 | 다음 · 다시 ── */
+.game-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 44px;
+  margin-bottom: 12px;
+}
+.game-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.game-stat span, .game-next span {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(var(--text-given-rgb), 0.45);
+}
+.game-stat strong {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-given);
+  font-variant-numeric: tabular-nums;
+}
+.game-stat.is-sub strong { font-size: 18px; font-weight: 600; color: rgba(var(--text-given-rgb), 0.55); }
+.game-stat.is-sub { align-self: flex-end; padding-bottom: 1px; }
+.game-next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  margin-left: auto;
+  padding: 0 6px 0 12px;
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+.game-next canvas { display: block; width: 30px; height: 30px; }
+
+.icon-btn {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 14px;
+  background: var(--surface-1);
+  color: rgba(var(--text-given-rgb), 0.7);
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(var(--shadow-rgb), 0.08);
+  transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.icon-btn:hover { background: var(--surface-1-hover); color: var(--text-given); box-shadow: 0 4px 10px rgba(var(--shadow-rgb), 0.14); }
+.icon-btn:active { transform: scale(0.95); }
+.icon-btn.is-armed { background: var(--surface-danger); color: var(--conflict); font-size: 12px; }
+
+/* ── 게임판 + 도감 ── */
+.play-area { display: flex; justify-content: center; gap: 10px; }
+.board {
+  position: relative;
+  flex: none;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 20px;
+  background: var(--surface-solid);
+  box-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.06), 0 6px 18px rgba(var(--shadow-rgb), 0.08);
+  overflow: hidden;
+}
+.board canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: pointer; }
+
+.board-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(var(--glass-rgb), 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.board-over[hidden] { display: none; }
+.over-panel {
+  width: 100%;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px 16px;
+  border-radius: 16px;
+  background: var(--surface-solid);
+  box-shadow: 0 10px 30px rgba(var(--shadow-rgb), 0.22);
+}
+.over-title { margin: 0; font-size: 12px; font-weight: 700; color: rgba(var(--text-given-rgb), 0.55); }
+.over-score {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-given);
+  font-variant-numeric: tabular-nums;
+}
+.over-panel .daily-card-status { margin-top: 0; }
+.over-panel .landing-row { width: 100%; margin-top: 6px; }
+.over-panel .primary-btn { flex: 1; margin-top: 0; height: 42px; }
+.over-panel .small-btn { flex: none; width: 64px; }
+
+/* ── 도감: 왼쪽 과일 단계, 오른쪽 2048 타일. 단계끼리 가는 선으로 잇는다 ── */
+.dex {
+  flex: none;
+  width: 124px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 10px;
+  border-radius: 20px;
+  background: var(--surface-solid);
+  box-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.06), 0 6px 18px rgba(var(--shadow-rgb), 0.08);
+  overflow: hidden;
+}
+.dex-head {
+  display: grid;
+  grid-template-columns: 1fr 24px 1fr;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: rgba(var(--text-given-rgb), 0.45);
+}
+.dex-head span:last-child { grid-column: 3; }
+.dex-grid {
+  position: relative;
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  align-items: center;
+}
+.dex-item, .dex-tile {
+  position: relative;
+  z-index: 1;
+  width: var(--size);
+  height: var(--size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-solid);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  line-height: 1;
+}
+.dex-item { border-radius: 999px; }
+.dex-tile { border-radius: 22%; }
+/* 다음 단계로 잇는 선 */
+.dex-item.has-next::after, .dex-tile.has-next::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: var(--gap);
+  margin-left: -1px;
+  background: rgba(var(--text-given-rgb), 0.1);
+}
+.dex-item canvas { display: block; }
+.dex-item.is-unknown, .dex-tile.is-unknown {
+  box-shadow: inset 0 0 0 1.5px rgba(var(--text-given-rgb), 0.14);
+  font-weight: 600;
+  color: rgba(var(--text-given-rgb), 0.25);
+}
+.dex-item.is-goal, .dex-tile.is-goal {
+  box-shadow: inset 0 0 0 1.5px rgba(var(--text-given-rgb), 0.12);
+  color: rgba(var(--text-given-rgb), 0.22);
+}
+.star-svg { display: block; width: 46%; height: 46%; fill: currentColor; }
+.dex-item.is-top, .dex-tile.is-top { box-shadow: 0 0 0 2px var(--surface-solid), 0 0 0 4px var(--text-input); }
+.dex-item.is-new, .dex-tile.is-new { animation: dex-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes dex-pop { 0% { transform: scale(0.3); } 100% { transform: scale(1); } }
+/* 7단계 ↔ 32 → 합쳐진다는 표시: 두 칸 가운데를 잇는 선 + 별 배지 (목표라 회색, 이루면 금색) */
+.dex-bond {
+  position: absolute;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: rgba(var(--text-given-rgb), 0.14);
+  pointer-events: none;
+}
+.dex-bond-star {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-solid);
+  box-shadow: 0 0 0 1.5px rgba(var(--text-given-rgb), 0.12);
+  color: rgba(var(--text-given-rgb), 0.25);
+}
+.dex-bond-star .star-svg { width: 10px; height: 10px; }
+.dex-bond.is-done { background: rgba(242, 179, 61, 0.55); }
+.dex-bond.is-done .dex-bond-star { color: #f2b33d; box-shadow: 0 0 0 1.5px rgba(242, 179, 61, 0.6); }
+
+/* ── 목표 줄: 칩 셋 + 별 ── */
+.goals {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-bottom: 12px;
+}
+.goal {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: rgba(var(--text-given-rgb), 0.65);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+.goal-icon { flex: none; display: flex; align-items: center; gap: 3px; }
+.goal-icon canvas { display: block; }
+.goal-text { overflow: hidden; text-overflow: ellipsis; }
+.goal-plus { font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700; opacity: 0.6; }
+.mini-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f9f6f2;
+}
+.mini-tile[data-v="32"] { background: #f67c5f; }
+.mini-tile[data-v="64"] { background: #f65e3b; }
+.goal.is-done { background: var(--cell-selected); color: var(--text-sel); }
+.goal.is-done .goal-text::before { content: '✓ '; font-weight: 700; }
+.goal-stars, .over-stars { flex: none; display: flex; gap: 1px; font-size: 18px; line-height: 1; }
+.goal-stars span, .over-stars span { color: rgba(var(--text-given-rgb), 0.15); transition: color 0.3s ease, transform 0.3s ease; }
+.goal-stars span.on, .over-stars span.on { color: #f2b33d; }
+.goal-stars span.on { animation: star-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes star-pop { 0% { transform: scale(0.4); } 100% { transform: scale(1); } }
+.over-stars { font-size: 28px; gap: 4px; margin: 2px 0; }
+
+/* ── 작은 회색 버튼 ── */
+.landing-btn.small-btn { height: 40px; font-size: 13px; border-radius: 12px; }
+.landing-btn.small-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; transform: none; }
+
+/* ── 설정: 이미지 칸 ── */
+.set-panel { display: flex; flex-direction: column; gap: 12px; }
+.set-panel[hidden] { display: none; }
+.set-panel > .landing-btn, .landing-stack > .landing-btn { flex: none; }
+.slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.slot-wrap { position: relative; }
+.slot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.slot:hover { background: var(--surface-1-hover); }
+.slot:disabled { cursor: default; }
+.slot:disabled:hover { background: var(--surface-1); }
+.slot:disabled:active { transform: none; }
+#custom-actions[hidden] { display: none; }
+.slot:active { transform: scale(0.95); }
+.slot.has-image { background: var(--surface-solid); box-shadow: inset 0 0 0 2px var(--text-input); }
+.slot.is-drag { box-shadow: inset 0 0 0 2px var(--text-input); background: var(--cell-selected); }
+.slot canvas { display: block; pointer-events: none; }
+.slot-num {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(var(--text-given-rgb), 0.4);
+  font-variant-numeric: tabular-nums;
+}
+.slot-del {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: rgba(var(--text-given-rgb), 0.6);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(var(--shadow-rgb), 0.16);
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.slot-del:hover { background: var(--surface-danger); color: var(--conflict); }
+.slot-del:active { transform: scale(0.92); }
+
+.seg button:not(.active):hover { color: var(--text-given); }
+
+/* ── 방법 ── */
+.help-pop { left: 16px; right: 16px; bottom: 16px; padding: 14px 16px; text-align: left; }
+.help-pop ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: rgba(var(--text-given-rgb), 0.7); word-break: keep-all; }
+
+/* ── 좁은 화면: 도감 칸을 줄인다 ── */
+@media (max-width: 480px) {
+  .play-area { gap: 6px; }
+  .dex { width: 84px; padding: 8px 6px; border-radius: 14px; }
+  .goal { padding: 0 6px; gap: 4px; font-size: 11px; }
+  .goal-text { display: none; }
+  .goal.is-done .goal-icon::after { content: '✓'; font-size: 12px; font-weight: 700; }
+  .game-head { gap: 12px; }
+  .game-stat strong { font-size: 22px; }
+  .game-stat.is-sub strong { font-size: 15px; }
+}
+
+/* ── 낮은 화면 ── */
+@media (max-height: 680px) {
+  .slide.app-slide { padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .landing-card.is-game { padding-bottom: 18px; }
+  .set-panel { gap: 10px; }
+  .slot-grid { gap: 6px; }
+}
+@media (max-height: 560px) {
+  .slide.app-slide { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .landing-card.is-game { padding-bottom: 14px; }
+  .game-head { height: 32px; margin-bottom: 8px; }
+  .game-stat strong { font-size: 22px; }
+  .icon-btn { height: 32px; min-width: 32px; }
+  .set-panel { gap: 8px; }
+  .landing-btn.small-btn { height: 34px; }
+  .goals { margin-bottom: 8px; }
+  .goal { height: 30px; }
+}

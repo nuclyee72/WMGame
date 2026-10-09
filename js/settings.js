@@ -160,7 +160,10 @@ window.WM = window.WM || {};
     const used = WM.customImages.slice(0, n).filter(Boolean).length;
     let note;
     if (WM.imageSet === 'default') note = 'The original fruits';
-    else if (!custom) note = `${WM.IMAGE_SETS.find((s) => s.id === WM.imageSet).name} set · switch to Custom to use your own`;
+    else if (!custom) {
+      const set = WM.IMAGE_SETS.find((s) => s.id === WM.imageSet);
+      note = set.credit ? `${set.name} set · ${set.credit}` : `${set.name} set · switch to Custom to use your own`;
+    }
     else if (used) note = `${used} of ${n} tiers use your images · empty slots use the default fruit`;
     else note = 'Tap a slot to upload a PNG · empty slots use the default fruit';
     $('#images-note').textContent = note;

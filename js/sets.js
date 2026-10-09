@@ -3,10 +3,10 @@ window.WM = window.WM || {};
 (function (WM) {
   const LS_SET = 'wm-image-set';
 
-  // files는 1단계부터 순서대로. cutout이면 흰 배경을 지워 쓴다
+  // files는 1단계부터 순서대로. cutout이면 흰 배경을 지워 쓴다. credit은 저작권 표시
   WM.IMAGE_SETS = [
     { id: 'default', name: 'Default' },
-    { id: 'plush', name: 'Plush', files: ['1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', '7.png', '8.jpg'], cutout: true },
+    { id: 'plush', name: 'Plush', files: ['1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', '7.png', '8.jpg'], cutout: true, credit: 'Plush photos © NEXON' },
     { id: 'custom', name: 'Custom' },
   ];
   const findSet = (id) => WM.IMAGE_SETS.find((s) => s.id === id);

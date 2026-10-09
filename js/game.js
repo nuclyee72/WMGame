@@ -53,6 +53,11 @@ window.WM = window.WM || {};
   const KICK = 1.5;                 // 합쳐질 때 주변 과일을 미는 세기 (스텝당 px)
   const ESCAPE_TIME = 200;          // 끼인 과일이 빈자리로 톡 튀어나가는 시간
 
+  // ── 판 밖으로 나가지 않게 ──
+  const MAX_SPEED = 18;             // 과일 최고 속도 (스텝당 px). 맨 위에서 바닥까지 떨어질 때가 16쯤이라 그보다 조금 위
+  const WALL_SLACK = 0.25;          // 벽 너머로 반지름의 이만큼(최소 4px)보다 더 나가면 안으로 되돌린다
+  const WALL_BOUNCE = 0.3;          // 되돌릴 때 바깥으로 가던 속도를 이만큼 거꾸로 튕긴다
+
   const DIRS = {
     down: { x: 0, y: 1 }, up: { x: 0, y: -1 },
     left: { x: -1, y: 0 }, right: { x: 1, y: 0 },
@@ -814,10 +819,40 @@ window.WM = window.WM || {};
     cb.onOver && cb.onOver({ score, best: stats.best, isBest, maxTier, stars, cleared });
   }
 
+  // 타일에 밀리거나 합체에 튕겨 너무 빨라진 과일을 늦춘다 (빠르면 벽을 뚫고 반대편으로 밀려날 수 있다)
+  function capSpeed() {
+    for (const b of fruits) {
+      const v = b.velocity, sp = Math.hypot(v.x, v.y);
+      if (sp > MAX_SPEED) M.Body.setVelocity(b, { x: (v.x / sp) * MAX_SPEED, y: (v.y / sp) * MAX_SPEED });
+    }
+  }
+
+  // 벽 너머로 많이 나간 과일은 상자 안으로 되돌리고, 바깥으로 가던 속도는 안쪽으로 튕긴다
+  function keepInside() {
+    const c = container();
+    for (const b of fruits) {
+      if (b.escape) continue;
+      const r = b.circleRadius, p = b.position, v = b.velocity;
+      const slack = Math.max(4, r * WALL_SLACK);
+      let x = p.x, y = p.y, vx = v.x, vy = v.y;
+      if (x - r < c.x0 - slack) { x = c.x0 + r; if (vx < 0) vx = -vx * WALL_BOUNCE; }
+      if (x + r > c.x1 + slack) { x = c.x1 - r; if (vx > 0) vx = -vx * WALL_BOUNCE; }
+      if (y - r < c.y0 - slack) { y = c.y0 + r; if (vy < 0) vy = -vy * WALL_BOUNCE; }
+      if (y + r > c.y1 + slack) { y = c.y1 - r; if (vy > 0) vy = -vy * WALL_BOUNCE; }
+      if (x === p.x && y === p.y) continue;
+      M.Body.setPosition(b, { x, y });
+      M.Body.setVelocity(b, { x: vx, y: vy });
+    }
+  }
+
   function step() {
     moveTiles();
     updateEscapes();
-    for (let i = 0; i < SUBSTEPS; i++) M.Engine.update(engine, STEP / SUBSTEPS);
+    for (let i = 0; i < SUBSTEPS; i++) {
+      M.Engine.update(engine, STEP / SUBSTEPS);
+      capSpeed();
+    }
+    keepInside();
     time += STEP;
     updateTiles();
     processMerges();

@@ -19,6 +19,12 @@ window.WM = window.WM || {};
   const OVER_TIME = 2000;           // 제한선 밖으로 이만큼 삐져나와 있으면 게임 오버
   const POP_TIME = 160;             // 합체 팝 효과
   const BOUNCE = 0.3;               // 과일 탄성
+  // 잘 구르게: 맞닿은 마찰은 남겨 굴러가며 돌게 하고, 멈춰 붙는 정지 마찰과 공기 저항은 낮춘다
+  // (matter.js는 맞닿은 둘 중 정지 마찰이 큰 쪽을 쓰므로 벽·타일에도 같은 값을 준다)
+  const FRICTION = 0.22;
+  const FRICTION_STATIC = 0.08;
+  const FRICTION_AIR = 0.003;
+  const SURFACE = { friction: FRICTION, frictionStatic: FRICTION_STATIC };
 
   // ── 행동 순서: 가끔 과일 대신 스와이프가 나오고, 그때는 꼭 밀어야 한다 ──
   const SWIPE = 'swipe';
@@ -234,7 +240,7 @@ window.WM = window.WM || {};
     if (walls.length) M.Composite.remove(engine.world, walls);
     const c = container(), T = 100;
     const w = c.x1 - c.x0, h = c.y1 - c.y0, cx = (c.x0 + c.x1) / 2, cy = (c.y0 + c.y1) / 2;
-    const opt = { isStatic: true, friction: 0.5, restitution: 0.2 };
+    const opt = { isStatic: true, restitution: 0.2, ...SURFACE };
     walls = [
       M.Bodies.rectangle(c.x0 - T / 2, cy, T, h + T * 2, opt),
       M.Bodies.rectangle(c.x1 + T / 2, cy, T, h + T * 2, opt),
@@ -255,9 +261,8 @@ window.WM = window.WM || {};
     const c = container();
     const b = M.Bodies.circle(clamp(x, c.x0 + r, c.x1 - r), clamp(y, c.y0 + r, c.y1 - r), r, {
       restitution: BOUNCE,
-      friction: 0.4,
-      frictionStatic: 0.5,
-      frictionAir: 0.008,
+      ...SURFACE,
+      frictionAir: FRICTION_AIR,
       density: 0.001,
       // 7단계 과일은 32의 모서리 동그라미를 통과한다
       collisionFilter: { category: 0x0001, mask: tier === SOCKET_TIER ? 0xffffffff & ~KNOB_CAT : 0xffffffff, group: 0 },
@@ -450,10 +455,10 @@ window.WM = window.WM || {};
   }
 
   function tileBody(value, x, y) {
-    if (value !== SOCKET) return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, friction: 0.3, restitution: 0.2 });
+    if (value !== SOCKET) return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, restitution: 0.2, ...SURFACE });
     const parts = KNOBS.map(([sx, sy]) => M.Bodies.circle(x + (sx * CELL) / 2, y + (sy * CELL) / 2, KNOB));
     return M.Body.create({
-      parts, isStatic: true, friction: 0.3, restitution: 0.2,
+      parts, isStatic: true, restitution: 0.2, ...SURFACE,
       collisionFilter: { category: KNOB_CAT, mask: 0xffffffff, group: 0 },
     });
   }

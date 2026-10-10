@@ -49,7 +49,7 @@ window.WM = window.WM || {};
   const PACKING = 0.72;             // 과일이 빈 공간을 채울 수 있는 비율 (둥글어서 빈틈 없이는 못 채운다)
 
   // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 과일을 삼킨다 ──
-  // 채운 32는 '32+α' 칸으로 그 자리에 고정된다: 스와이프에 움직이지도 합쳐지지도 않고, 과일은 여전히 지나간다
+  // 채운 32는 '32+α' 타일로 남는다: 스와이프에 다른 타일처럼 움직이지만 무엇과도 합쳐지지 않고, 과일은 여전히 지나간다
   // 채우기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 다른 32는 16처럼 빈 테두리일 뿐)
   const SOCKET = 32;
   const SOCKET_TIER = 6;            // 7단계 (0부터 셈)
@@ -641,7 +641,7 @@ window.WM = window.WM || {};
     }
   }
 
-  // 32 구멍에 7단계 과일이 자리 잡으면 과일이 사라지고 타일은 고정된 '32+α' 칸이 된다 (판마다 한 번만)
+  // 32 구멍에 7단계 과일이 자리 잡으면 과일이 사라지고 타일은 '32+α'가 된다 (판마다 한 번만)
   function checkSockets() {
     if (phase || goals.socket) return;
     for (const t of tiles) {
@@ -652,7 +652,7 @@ window.WM = window.WM || {};
         if (Math.abs(b.position.x - p.x) > SOCKET_SNAP || Math.abs(b.position.y - p.y) > SOCKET_SNAP) continue;
         M.Composite.remove(engine.world, b);
         fruits.delete(b);
-        t.fixed = true;
+        t.filled = true;
         t.popAt = time;
         burst(p.x, p.y, radii[SOCKET_TIER] * 1.1, SOCKET_TIER, 2.4, null, TILE_COLORS[SOCKET][0]);
         burst(p.x, p.y, radii[SOCKET_TIER], SOCKET_TIER, 1.2);
@@ -698,11 +698,11 @@ window.WM = window.WM || {};
     lastDrop = time;
     advance();
     phase = true;
-    for (const t of tiles) { t.state = t.fixed ? 'done' : 'decide'; t.merged = false; t.jam = 0; t.speed = TILE_SPEED0 - TILE_ACCEL; }
+    for (const t of tiles) { t.state = 'decide'; t.merged = false; t.jam = 0; t.speed = TILE_SPEED0 - TILE_ACCEL; }
   }
 
   // 둘이 합쳐질 수 있는지 (채운 32는 무엇과도 합쳐지지 않는다)
-  const mergeable = (a, b) => a.value === b.value && !a.fixed && !b.fixed;
+  const mergeable = (a, b) => a.value === b.value && !a.filled && !b.filled;
 
   // 칸 하나 앞으로 갈지 정한다 (2048 규칙: 같은 수의 멈춘 타일이면 합치고, 다르면 멈춘다)
   function decide(t) {
@@ -1170,7 +1170,7 @@ window.WM = window.WM || {};
   }
 
   function drawTile(t, blocked) {
-    if (t.fixed) { drawFilled(t); return; }
+    if (t.filled) { drawFilled(t); return; }
     if (t.value === SOCKET && !goals.socket) { drawSocket(t); return; }
     if (hollow(t.value)) { drawHollow(t); return; }
     const p = t.body.position;
@@ -1285,7 +1285,7 @@ window.WM = window.WM || {};
     ctx.restore();
   }
 
-  // 채운 32: 고정된 투명 칸 — 옅은 바닥, 실선 테두리, '32+α'
+  // 채운 32: 투명한 타일 — 옅은 바닥, 실선 테두리, '32+α'
   function drawFilled(t) {
     const p = t.body.position;
     const s = tileScale(t);

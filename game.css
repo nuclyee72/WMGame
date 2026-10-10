@@ -104,6 +104,8 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .icon-btn:hover { background: var(--surface-1-hover); color: var(--text-given); box-shadow: 0 4px 10px rgba(var(--shadow-rgb), 0.14); }
 .icon-btn:active { transform: scale(0.95); }
 .icon-btn.is-armed { background: var(--surface-danger); color: var(--conflict); font-size: 12px; }
+.icon-btn.is-ready { background: var(--text-input); color: #fff; }
+.icon-btn.is-ready:hover { background: var(--text-sel); color: #fff; }
 
 /* ── 게임판 + 도감 ── */
 .play-area { display: flex; justify-content: center; gap: 10px; }
@@ -157,6 +159,7 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .over-panel .landing-row { width: 100%; margin-top: 6px; }
 .over-panel .primary-btn { flex: 1; margin-top: 0; height: 42px; }
 .over-panel .small-btn { flex: none; width: 64px; }
+.over-panel .landing-mini-btn { flex: none; width: 100%; height: 32px; margin-top: -2px; }
 
 /* ── 도감: 왼쪽 과일 단계, 오른쪽 2048 타일. 단계끼리 가는 선으로 잇는다 ── */
 .dex {

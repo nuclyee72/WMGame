@@ -105,6 +105,7 @@ window.WM = window.WM || {};
   // ── 게임 ──
   function newGame() {
     $('#over').hidden = true;
+    restartBtn.classList.remove('is-ready');
     WM.game.newGame();
   }
 
@@ -148,6 +149,11 @@ window.WM = window.WM || {};
 
   $('#again-btn').addEventListener('click', () => { newGame(); WM.game.start(); });
   $('#over-settings-btn').addEventListener('click', () => show('settings', true));
+  // 결과를 닫고 끝난 판을 본다. 새 판은 머리 줄의 ↻로 시작한다
+  $('#over-view-btn').addEventListener('click', () => {
+    $('#over').hidden = true;
+    restartBtn.classList.add('is-ready');
+  });
 
   // ── 목표 ──
   function paintGoalIcons() {

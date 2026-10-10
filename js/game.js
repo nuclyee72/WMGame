@@ -49,16 +49,15 @@ window.WM = window.WM || {};
   const PACKING = 0.72;             // 과일이 빈 공간을 채울 수 있는 비율 (둥글어서 빈틈 없이는 못 채운다)
 
   // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 둘이 합쳐진다 ──
-  // 합치기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 32는 64처럼 빈 테두리일 뿐)
+  // 합치기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 32는 16처럼 빈 테두리일 뿐)
   const SOCKET = 32;
   const SOCKET_TIER = 6;            // 7단계 (0부터 셈)
   const SOCKET_SNAP = 22;           // 과일 중심이 타일 중심에서 이만큼 안이면 합친다
   const SOCKET_POINTS = 256;
 
-  // ── 16·64 타일: 몸통이 없어 모든 과일이 그냥 지나간다 (스와이프 땐 다른 타일처럼 움직이고 합쳐진다. 64 둘이면 128) ──
+  // ── 16 타일: 몸통이 없어 모든 과일이 그냥 지나간다 (스와이프 땐 다른 타일처럼 움직이고 합쳐진다) ──
   const OPEN = 16;
-  const HOLLOW = 64;
-  const hollow = (v) => v === OPEN || v === SOCKET || v === HOLLOW; // 속이 비어 맨 윗칸에 있어도 떨어뜨리기를 막지 않는다
+  const hollow = (v) => v === OPEN || v === SOCKET; // 속이 비어 맨 윗칸에 있어도 떨어뜨리기를 막지 않는다
 
   // ── 숨은 요소: 8단계 둘 → 9단계 과일, 64 둘 → 128 타일. 만들면 파란 별 (메인 목표 아님) ──
   const HIDDEN_TILE = 128;
@@ -333,7 +332,7 @@ window.WM = window.WM || {};
     return grid[Math.floor((w.y - MARGIN) / CELL)][Math.floor((w.x - MARGIN) / CELL)];
   }
 
-  // 지금 조준 위치에 놓을 과일 자리 (맨 윗칸에 막힌 타일이 있거나 타일과 겹치면 놓을 수 없다. 16·32·64는 속이 비어 통과)
+  // 지금 조준 위치에 놓을 과일 자리 (맨 윗칸에 막힌 타일이 있거나 타일과 겹치면 놓을 수 없다. 16·32는 속이 비어 통과)
   // 조준은 판 바닥 끝까지 된다. 칸 영역 옆 여백에 쏙 들어가는 작은 과일은 옆 칸 타일에 막히지 않는다
   function dropSpot() {
     const r = radii[current];
@@ -488,14 +487,14 @@ window.WM = window.WM || {};
     if (dx < 0 && dy < 0) return r + Math.min(-dx, -dy);
     return r - Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
   }
-  // 원이 타일에 파고든 깊이 (32·64는 모든 과일이 통과하니 겹침 없음)
+  // 원이 타일에 파고든 깊이 (16·32는 모든 과일이 통과하니 겹침 없음)
   function tileOverlap(c, r, t) {
     if (hollow(t.value)) return -Infinity;
     return squareOverlap(c, r, t.body.position);
   }
 
   function tileBody(value, x, y) {
-    // 32·64는 아무것과도 부딪히지 않는 몸통 (자리만 잡아 둔다)
+    // 16·32는 아무것과도 부딪히지 않는 몸통 (자리만 잡아 둔다)
     if (hollow(value)) return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, isSensor: true, collisionFilter: { category: 0, mask: 0, group: 0 } });
     return M.Bodies.rectangle(x, y, BODY, BODY, { isStatic: true, restitution: 0.2, ...SURFACE });
   }
@@ -800,7 +799,7 @@ window.WM = window.WM || {};
     return area > room;
   }
 
-  // 타일 앞면에서 가는 길에 있는 가장 가까운 과일까지 거리 (32·64는 속이 비어 있어 따로 보지 않는다)
+  // 타일 앞면에서 가는 길에 있는 가장 가까운 과일까지 거리 (16·32는 속이 비어 있어 따로 보지 않는다)
   function frontGap(t) {
     if (hollow(t.value)) return Infinity;
     const d = DIRS[gravity];
@@ -1168,7 +1167,7 @@ window.WM = window.WM || {};
 
   function drawTile(t, blocked) {
     if (t.value === SOCKET && !goals.socket) { drawSocket(t); return; }
-    if (hollow(t.value) && t.value !== HOLLOW) { drawHollow(t); return; } // 64는 통과되지만 보통 타일처럼 꽉 차게 그린다
+    if (hollow(t.value)) { drawHollow(t); return; }
     const p = t.body.position;
     const s = tileScale(t);
     const v = shade();

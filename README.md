@@ -11,7 +11,7 @@ A browser game that mixes Suika-style fruit merging with 2048 tiles on a 4×4 bo
 - The value of the next new tile shows beside **Next**. On a swipe turn, a dashed cell — picked at random among cells with no tile or fruit — shows where it will land, whichever way you swipe. If a tile slides into that cell, the new tile lands on a random empty cell instead; if every cell holds a tile, the game ends. The tile appears once the fruit settles, or when you make the next swipe (fruit in its way slides aside).
 - You can't drop into a column whose top cell holds a tile. Tiles can push a little fruit; if too much is in the way they bounce back.
 - A **32** tile is hollow — roll a Tier 7 fruit into it and both burst. This works only once per game; after that a 32 is just an empty frame.
-- Every fruit passes through **16** and **64** tiles (16 is an empty frame, 64 looks solid), but they still slide and merge.
+- Every fruit passes through **16** tiles (an empty frame), but they still slide and merge. **64** tiles are solid like the others.
 - Fruit poking past the dashed line for 2 seconds ends the game.
 - Keys: `A` / `D` aim · `Space` drop · arrow keys swipe.
 

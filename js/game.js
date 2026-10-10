@@ -48,8 +48,9 @@ window.WM = window.WM || {};
   const JAM_STEPS = 2;              // …이 상태가 이만큼 이어지면 튕긴다
   const PACKING = 0.72;             // 과일이 빈 공간을 채울 수 있는 비율 (둥글어서 빈틈 없이는 못 채운다)
 
-  // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 둘이 합쳐진다 ──
-  // 합치기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 32는 16처럼 빈 테두리일 뿐)
+  // ── 32 타일: 몸통이 없어 과일이 그냥 지나간다 (움직일 때도 걸리지 않는다). 7단계 과일이 가운데에 오면 과일을 삼킨다 ──
+  // 채운 32는 '32+α' 칸으로 그 자리에 고정된다: 스와이프에 움직이지도 합쳐지지도 않고, 과일은 여전히 지나간다
+  // 채우기는 판마다 처음 한 번만 된다 (목표를 이룬 뒤의 다른 32는 16처럼 빈 테두리일 뿐)
   const SOCKET = 32;
   const SOCKET_TIER = 6;            // 7단계 (0부터 셈)
   const SOCKET_SNAP = 22;           // 과일 중심이 타일 중심에서 이만큼 안이면 합친다
@@ -640,7 +641,7 @@ window.WM = window.WM || {};
     }
   }
 
-  // 32 구멍에 7단계 과일이 자리 잡으면 둘이 합쳐져 사라진다 (판마다 한 번만)
+  // 32 구멍에 7단계 과일이 자리 잡으면 과일이 사라지고 타일은 고정된 '32+α' 칸이 된다 (판마다 한 번만)
   function checkSockets() {
     if (phase || goals.socket) return;
     for (const t of tiles) {
@@ -649,10 +650,10 @@ window.WM = window.WM || {};
       for (const b of fruits) {
         if (b.tier !== SOCKET_TIER || b.merged || b.escape) continue;
         if (Math.abs(b.position.x - p.x) > SOCKET_SNAP || Math.abs(b.position.y - p.y) > SOCKET_SNAP) continue;
-        M.Composite.remove(engine.world, [b, t.body]);
+        M.Composite.remove(engine.world, b);
         fruits.delete(b);
-        tiles.delete(t);
-        grid[t.row][t.col] = null;
+        t.fixed = true;
+        t.popAt = time;
         burst(p.x, p.y, radii[SOCKET_TIER] * 1.1, SOCKET_TIER, 2.4, null, TILE_COLORS[SOCKET][0]);
         burst(p.x, p.y, radii[SOCKET_TIER], SOCKET_TIER, 1.2);
         addScore(SOCKET_POINTS, p.x, p.y);
@@ -697,8 +698,11 @@ window.WM = window.WM || {};
     lastDrop = time;
     advance();
     phase = true;
-    for (const t of tiles) { t.state = 'decide'; t.merged = false; t.jam = 0; t.speed = TILE_SPEED0 - TILE_ACCEL; }
+    for (const t of tiles) { t.state = t.fixed ? 'done' : 'decide'; t.merged = false; t.jam = 0; t.speed = TILE_SPEED0 - TILE_ACCEL; }
   }
+
+  // 둘이 합쳐질 수 있는지 (채운 32는 무엇과도 합쳐지지 않는다)
+  const mergeable = (a, b) => a.value === b.value && !a.fixed && !b.fixed;
 
   // 칸 하나 앞으로 갈지 정한다 (2048 규칙: 같은 수의 멈춘 타일이면 합치고, 다르면 멈춘다)
   function decide(t) {
@@ -711,7 +715,7 @@ window.WM = window.WM || {};
       t.to = { col: nc, row: nr };
       t.state = 'move';
     } else if (o.state === 'done') {
-      if (o.value === t.value && !o.merged) {
+      if (mergeable(o, t) && !o.merged) {
         t.to = { col: nc, row: nr };
         t.mergeInto = o;
         t.state = 'move';
@@ -894,8 +898,8 @@ window.WM = window.WM || {};
   function canMerge() {
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
-        const v = grid[row][col].value;
-        if ((col + 1 < COLS && grid[row][col + 1].value === v) || (row + 1 < ROWS && grid[row + 1][col].value === v)) return true;
+        const t = grid[row][col];
+        if ((col + 1 < COLS && mergeable(grid[row][col + 1], t)) || (row + 1 < ROWS && mergeable(grid[row + 1][col], t))) return true;
       }
     }
     return false;
@@ -1166,6 +1170,7 @@ window.WM = window.WM || {};
   }
 
   function drawTile(t, blocked) {
+    if (t.fixed) { drawFilled(t); return; }
     if (t.value === SOCKET && !goals.socket) { drawSocket(t); return; }
     if (hollow(t.value)) { drawHollow(t); return; }
     const p = t.body.position;
@@ -1277,6 +1282,29 @@ window.WM = window.WM || {};
     ctx.textBaseline = 'middle';
     ctx.fillStyle = bg;
     ctx.fillText(t.value, p.x, p.y + 2);
+    ctx.restore();
+  }
+
+  // 채운 32: 고정된 투명 칸 — 옅은 바닥, 실선 테두리, '32+α'
+  function drawFilled(t) {
+    const p = t.body.position;
+    const s = tileScale(t);
+    const [bg] = TILE_COLORS[SOCKET];
+    const w = (TILE - 6) * s;
+    ctx.save();
+    ctx.globalAlpha = colors.dark ? 0.2 : 0.16;
+    ctx.fillStyle = bg;
+    roundRect(p.x - w / 2, p.y - w / 2, w, w, 10 * s);
+    ctx.fill();
+    ctx.globalAlpha = colors.dark ? 0.8 : 0.9;
+    ctx.strokeStyle = bg;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.font = `700 ${Math.round(26 * s)}px Outfit, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = bg;
+    ctx.fillText('32+α', p.x, p.y + 2);
     ctx.restore();
   }
 

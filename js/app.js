@@ -382,6 +382,27 @@ window.WM = window.WM || {};
     if (hasPhysics) WM.game.refreshColors();
   });
 
+  // ── 소리: 누를 때마다 꺼짐 → 작게 → 크게 ──
+  // 스피커 아이콘: 크기만큼 물결, 꺼지면 ×
+  const SPEAKER = '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="currentColor"/>';
+  const WAVES = {
+    off: '<path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+    low: '<path d="M15.5 9.5a3.6 3.6 0 0 1 0 5"/>',
+    high: '<path d="M15.5 9.5a3.6 3.6 0 0 1 0 5M18.3 7a7.2 7.2 0 0 1 0 10"/>',
+  };
+  const soundBtns = document.querySelectorAll('.sound-btn');
+  WM.sound.onChange((lv) => {
+    const icon = `<svg class="sound-svg" viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${WAVES[lv]}</g></svg>`;
+    soundBtns.forEach((b) => {
+      const text = `Sound: ${WM.sound.label()}`;
+      b.innerHTML = b.classList.contains('icon-btn') ? icon : icon + `<span>${WM.sound.label()}</span>`;
+      b.setAttribute('aria-label', text);
+      b.title = text;
+      b.classList.toggle('is-off', lv === 'off');
+    });
+  });
+  soundBtns.forEach((b) => b.addEventListener('click', () => WM.sound.cycle()));
+
   // 새로고침하면 항상 홈에서 시작 (남은 history 상태가 뒤로 가기를 꼬지 않게)
   history.replaceState(null, '');
   show('home', false);

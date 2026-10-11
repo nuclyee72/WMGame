@@ -107,6 +107,12 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .icon-btn.is-ready { background: var(--text-input); color: #fff; }
 .icon-btn.is-ready:hover { background: var(--text-sel); color: #fff; }
 
+/* 소리 버튼: 스피커 아이콘 (홈에서는 글자와 함께) */
+.sound-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.sound-svg { display: block; width: 20px; height: 20px; flex: none; }
+.landing-mini-btn.sound-btn .sound-svg { width: 16px; height: 16px; }
+.sound-btn.is-off { color: rgba(var(--text-given-rgb), 0.4); }
+
 /* ── 게임판 + 도감 ── */
 .play-area { display: flex; justify-content: center; gap: 10px; }
 .board {
@@ -405,7 +411,7 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   .board { border-radius: 18px; }
   .dex.is-row { height: auto; padding: 10px; border-radius: 18px; }
   .dex.is-row .dex-head { display: none; }
-  .game-head { gap: 14px; margin-bottom: 10px; }
+  .game-head { gap: 10px; margin-bottom: 10px; }
   .game-stat strong { font-size: 24px; }
   .game-stat.is-sub strong { font-size: 16px; }
   .goals { gap: 6px; margin-bottom: 10px; }
@@ -418,6 +424,9 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 @media (max-width: 379px) {
   .goal { padding: 0 6px; gap: 4px; }
   .goal-text { display: none; }
+  .game-head { gap: 6px; }
+  .icon-btn { min-width: 34px; padding: 0 6px; }
+  .back-word { display: none; } /* 아주 좁으면 Back은 ‹만 */
   .goal.is-done .goal-icon::after { content: '✓'; font-size: 12px; font-weight: 700; }
 }
 }

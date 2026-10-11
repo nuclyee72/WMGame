@@ -388,6 +388,7 @@ window.WM = window.WM || {};
       const y = (a.position.y + b.position.y) / 2;
       M.Composite.remove(engine.world, [a, b]);
       fruits.delete(a); fruits.delete(b);
+      WM.sound.fruitMerge(t + 1);
       let gained;
       if (t === N) {
         gained = WM.points(N + 1) * 2; // 숨은 9단계 둘이 만나면 사라지며 보너스
@@ -654,6 +655,7 @@ window.WM = window.WM || {};
         fruits.delete(b);
         t.filled = true;
         t.popAt = time;
+        WM.sound.fruitMerge(SOCKET_TIER + 1);
         burst(p.x, p.y, radii[SOCKET_TIER] * 1.1, SOCKET_TIER, 2.4, null, TILE_COLORS[SOCKET][0]);
         burst(p.x, p.y, radii[SOCKET_TIER], SOCKET_TIER, 1.2);
         addScore(SOCKET_POINTS, p.x, p.y);
@@ -679,6 +681,7 @@ window.WM = window.WM || {};
   function swipe(dir) {
     if (!engine || over || phase || current !== SWIPE) return;
     resolvePending(); // 아직 기다리던 타일은 지금 놓는다
+    WM.sound.swipe();
     plannedSpawn = nextSpot || pickSpot(); // 보여 준 칸에 생기게 한다
     nextSpot = null;
     gravity = dir;
@@ -743,6 +746,7 @@ window.WM = window.WM || {};
       setTileValue(o, o.value * 2);
       o.merged = true;
       o.popAt = time;
+      WM.sound.tileMerge(o.value);
       const c = cellCenter(o.col, o.row);
       addScore(o.value, c.x, c.y);
       return;

@@ -38,6 +38,7 @@
           <div class="landing-mini-actions">
             <button class="landing-mini-btn" type="button" id="help-btn">How to play</button>
             <button class="landing-mini-btn" type="button" id="dark-toggle">Dark mode</button>
+            <button class="landing-mini-btn sound-btn" type="button" id="home-sound-btn">Sound</button>
           </div>
         </div>
       </div>
@@ -48,8 +49,9 @@
           <div class="game-stat"><span>Score</span><strong id="score">0</strong></div>
           <div class="game-stat is-sub"><span>Best</span><strong id="best">0</strong></div>
           <div class="game-next"><span>Next</span><canvas id="next-canvas" width="30" height="30"></canvas><span class="next-tile" id="next-tile" title="Next tile">2</span></div>
+          <button class="icon-btn sound-btn" type="button" id="sound-btn"></button>
           <button class="icon-btn" type="button" id="restart-btn" aria-label="Restart" title="Restart">↻</button>
-          <button class="icon-btn back-inline" type="button" id="game-back-btn">‹ Back</button>
+          <button class="icon-btn back-inline" type="button" id="game-back-btn" aria-label="Back">‹<span class="back-word"> Back</span></button>
         </div>
         <!-- 목표 셋: 이룬 만큼 별 -->
         <div class="goals" id="goals">
@@ -117,6 +119,7 @@
           <li>Fruit poking past the dashed line for 2 seconds ends the game</li>
           <li>Goals: make 64, fill a 32, make Tier 8 — one star each. The game keeps going after all three</li>
           <li>Keys: A / D aim · Space drop · arrows swipe</li>
+          <li>The speaker button cycles sound: off, low, high</li>
           <li>Plush photos in the Plush image set are © NEXON — unofficial fan project</li>
         </ul>
       </div>
@@ -129,6 +132,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
   <script src="js/tiers.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/sets.js"></script>
   <script src="js/game.js"></script>
   <script src="js/settings.js"></script>

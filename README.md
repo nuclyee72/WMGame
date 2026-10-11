@@ -14,6 +14,7 @@ A browser game that mixes Suika-style fruit merging with 2048 tiles on a 4×4 bo
 - Every fruit passes through **16** tiles (an empty frame), but they still slide and merge. **64** tiles are solid like the others.
 - Fruit poking past the dashed line for 2 seconds ends the game.
 - Keys: `A` / `D` aim · `Space` drop · arrow keys swipe.
+- Sound effects play for fruit merges, tile merges and swipes. The speaker button (in the game header and on the home screen) cycles **Off → Low → High**; the choice is remembered.
 
 ### Goals
 

@@ -179,11 +179,11 @@ window.WM = window.WM || {};
     const px = (v) => parseFloat(v) || 0;
     const outer = (el) => el.offsetHeight + px(getComputedStyle(el).marginBottom);
     const cs = getComputedStyle(card);
-    const slide = getComputedStyle(card.parentElement);
     const play = getComputedStyle($('.play-area'));
-    const roomW = window.innerWidth - px(slide.paddingLeft) - px(slide.paddingRight) - px(cs.paddingLeft) - px(cs.paddingRight);
-    const roomH = window.innerHeight - px(slide.paddingTop) - px(slide.paddingBottom)
-      - px(cs.paddingTop) - px(cs.paddingBottom) - outer($('.game-head')) - outer($('#goals'));
+    // 창 크기(innerHeight) 대신 실제로 그려진 카드 크기를 잰다 — 폰 툴바가 있어도 CSS와 어긋나지 않는다
+    const roomW = card.clientWidth - px(cs.paddingLeft) - px(cs.paddingRight);
+    const roomH = card.clientHeight - px(cs.paddingTop) - px(cs.paddingBottom)
+      - outer($('.game-head')) - outer($('#goals'));
     let w;
     if (isMobile()) {
       // 도감 띠 높이는 판 폭에 따라 정해지므로 두 번 맞춘다
@@ -348,15 +348,18 @@ window.WM = window.WM || {};
     dexShown = { fruit: top, tile: maxTile };
   }
 
+  // 보이는 영역이 바뀌면(창 크기, 회전, 폰 주소창·툴바가 나타나거나 숨을 때) 다시 맞춘다
   let resizeTimer = 0;
-  window.addEventListener('resize', () => {
+  function onResize() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (screen === 'game') fitBoard();
       else if (screen === 'home') renderHome();
       else WM.renderSettings();
     }, 80);
-  });
+  }
+  window.addEventListener('resize', onResize);
+  if (window.ResizeObserver) new ResizeObserver(onResize).observe(card.parentElement);
 
   document.addEventListener('visibilitychange', () => {
     if (!hasPhysics) return;
@@ -371,7 +374,12 @@ window.WM = window.WM || {};
 
   // ── 방법 · 다크 모드 ──
   const help = $('#help-pop');
-  $('#help-btn').addEventListener('click', (e) => { e.stopPropagation(); help.hidden = !help.hidden; });
+  $('#help-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    help.hidden = !help.hidden;
+    // 팝업은 카드 아래쪽에 붙어 위로 자라므로, 화면 위로 넘치지 않게 높이를 막고 안에서 스크롤한다
+    if (!help.hidden) help.style.maxHeight = Math.max(160, card.getBoundingClientRect().bottom - 16 - 8) + 'px';
+  });
   document.addEventListener('click', (e) => { if (!help.hidden && !help.contains(e.target)) help.hidden = true; });
 
   $('#dark-toggle').addEventListener('click', () => {

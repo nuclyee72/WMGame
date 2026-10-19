@@ -7,18 +7,21 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 :root { --board-tray: #e7d9c4; --board-tray-edge: #d3c1a6; --board-slot: #f3eadd; }
 [data-theme="dark"] { --board-tray: #3a3128; --board-tray-edge: #241e18; --board-slot: #2d2620; }
 
-/* 하단 점이 없으니 아래 여백을 위와 맞춘다 */
+/* 하단 점이 없으니 아래 여백을 위와 맞춘다.
+   화면은 보이는 영역에 고정한다 — 100vh/100dvh/100%는 폰 주소창·툴바에 따라 서로 달라서 아랫부분이 잘렸다 */
 .slide.app-slide {
+  position: fixed;
+  inset: 0;
+  height: auto;
   padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .screen[hidden] { display: none; }
-/* 게임 화면은 카드가 창 전체를 채우고, 머리 줄 · 목표 · 판을 가운데에 모은다 (폭은 app.js가 정한다) */
+/* 게임 화면은 카드가 화면 전체를 채우고, 머리 줄 · 목표 · 판을 가운데에 모은다 (폭은 app.js가 카드 크기를 재서 정한다) */
 .slide.app-slide.is-game { padding: 0; }
 .landing-card.is-game {
-  width: 100vw;
+  width: 100%;
   max-width: none;
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -134,12 +137,14 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   align-items: center;
   justify-content: center;
   padding: 16px;
+  overflow-y: auto; /* 판이 작아 결과 창이 안 들어가면 잘리지 않고 스크롤된다 */
   background: rgba(var(--glass-rgb), 0.6);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 .board-over[hidden] { display: none; }
 .over-panel {
+  margin: auto;
   width: 100%;
   max-width: 240px;
   display: flex;
@@ -166,6 +171,18 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .over-panel .primary-btn { flex: 1; margin-top: 0; height: 42px; }
 .over-panel .small-btn { flex: none; width: 64px; }
 .over-panel .landing-mini-btn { flex: none; width: 100%; height: 32px; margin-top: -2px; }
+/* 판이 작으면(낮은 화면 · 가로 모드) 결과 창을 줄여서 판 안에 들어가게 한다 */
+.board { container-type: inline-size; }
+@container (max-width: 320px) {
+  .board-over { padding: 8px; }
+  .over-panel { gap: 5px; padding: 12px 12px 10px; }
+  .over-stars { font-size: 22px; margin: 0; }
+  .over-score { font-size: 24px; }
+  .over-panel .landing-row { margin-top: 2px; }
+  .over-panel .primary-btn { height: 36px; }
+  .over-panel .small-btn { height: 36px; }
+  .over-panel .landing-mini-btn { height: 26px; margin-top: 0; }
+}
 
 /* ── 도감: 왼쪽 과일 단계, 오른쪽 2048 타일. 단계끼리 가는 선으로 잇는다 ── */
 .dex {
@@ -397,7 +414,7 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
 .seg button:not(.active):hover { color: var(--text-given); }
 
 /* ── 방법 ── */
-.help-pop { left: 16px; right: 16px; bottom: 16px; padding: 14px 16px; text-align: left; }
+.help-pop { left: 16px; right: 16px; bottom: 16px; padding: 14px 16px; text-align: left; overflow-y: auto; overscroll-behavior: contain; } /* 높이는 app.js가 화면 안으로 제한한다 */
 .help-pop ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: rgba(var(--text-given-rgb), 0.7); word-break: keep-all; }
 
 /* ── 폰 세로 화면: 카드가 화면을 거의 채우고, 판은 화면 폭만큼, 도감은 판 아래 가로 띠 ── */
@@ -428,7 +445,6 @@ body { font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-
   .icon-btn { min-width: 34px; padding: 0 6px; }
   .back-word { display: none; } /* 아주 좁으면 Back은 ‹만 */
   .goal.is-done .goal-icon::after { content: '✓'; font-size: 12px; font-weight: 700; }
-}
 }
 
 /* ── 낮은 화면 ── */

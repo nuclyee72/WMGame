@@ -16,12 +16,7 @@ window.WM = window.WM || {};
       const btn = e.target.closest('button[data-set]');
       if (!btn || btn.dataset.set === WM.imageSet) return;
       showError('');
-      try {
-        await WM.applyImageSet(btn.dataset.set);
-      } catch {
-        showError("Couldn't load that set — open the game through the local server");
-        await WM.applyImageSet('default');
-      }
+      await WM.applyImageSet(btn.dataset.set);
       WM.renderSettings();
       onChange('images');
     });
@@ -119,7 +114,7 @@ window.WM = window.WM || {};
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'slot' + (custom && WM.customImages[i] ? ' has-image' : '');
-      btn.disabled = !custom; // 기본·미리 넣은 세트는 보기만
+      btn.disabled = !custom; // 기본 세트는 보기만
       btn.setAttribute('aria-label', custom ? `Change tier ${i + 1} image` : `Tier ${i + 1}`);
       const cv = document.createElement('canvas');
       WM.paintSprite(cv, i, Math.round(size * 0.7));
@@ -159,11 +154,7 @@ window.WM = window.WM || {};
 
     const used = WM.customImages.slice(0, n).filter(Boolean).length;
     let note;
-    if (WM.imageSet === 'default') note = 'The original fruits';
-    else if (!custom) {
-      const set = WM.IMAGE_SETS.find((s) => s.id === WM.imageSet);
-      note = set.credit ? `${set.name} set · ${set.credit}` : `${set.name} set · switch to Custom to use your own`;
-    }
+    if (!custom) note = 'The original fruits';
     else if (used) note = `${used} of ${n} tiers use your images · empty slots use the default fruit`;
     else note = 'Tap a slot to upload a PNG · empty slots use the default fruit';
     $('#images-note').textContent = note;

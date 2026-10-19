@@ -26,11 +26,11 @@ Each goal is worth one star; reach all three for an all-clear. The game keeps go
 
 ### Fruit images
 
-In **Fruit images** you can switch between the default fruits, the Plush set, or your own uploads (Custom).
+In **Fruit images** you can switch between the default fruits or your own uploads (Custom).
 
 ## Run locally
 
-The Plush set loads image files with `fetch`, so serve the folder instead of opening `index.html` directly:
+Serve the folder with any static server, for example:
 
 ```sh
 python -m http.server 8000
@@ -40,5 +40,4 @@ Then open http://localhost:8000/.
 
 ## Credits
 
-- The plush photos `1.jpg`–`8.jpg` and `7.png` (the **Plush** image set) are copyrighted by **NEXON**. This is an unofficial, non-commercial fan project and is not affiliated with or endorsed by NEXON.
 - Physics by [matter.js](https://brm.io/matter-js/). Fonts: [Outfit](https://fonts.google.com/specimen/Outfit), [Pretendard](https://github.com/orioncactus/pretendard).

@@ -18,7 +18,7 @@ window.WM = window.WM || {};
     try { WM.customImages[tier] = await createImageBitmap(blob); } catch {}
   }
   const setChoice = WM.loadImageSetChoice() || (WM.customImages.some(Boolean) ? 'custom' : 'default');
-  try { await WM.applyImageSet(setChoice); } catch { await WM.applyImageSet('default'); }
+  await WM.applyImageSet(setChoice);
 
   const hasPhysics = !!window.Matter;
   if (hasPhysics) {
